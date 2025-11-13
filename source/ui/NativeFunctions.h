@@ -447,9 +447,12 @@ public:
 
     void insertAudioAtCursor (const juce::var& args, std::function<void (const juce::var&)> complete)
     {
+        DBG ("insertAudioAtCursor called");
+
         // Validate arguments: sourceID, startTime, endTime
         if (!args.isArray() || args.size() < 3)
         {
+            DBG ("Invalid arguments");
             complete (makeError ("Invalid arguments"));
             return;
         }
@@ -459,10 +462,13 @@ public:
         const double endTime = args[2];
         const double itemLength = endTime - startTime;
 
+        DBG ("insertAudioAtCursor: sourceID=" + sourceID + ", startTime=" + juce::String(startTime) + ", endTime=" + juce::String(endTime));
+
         // Find the audio source
         auto* document = getDocument();
         if (!document)
         {
+            DBG ("Document not found");
             complete (makeError ("Document not found"));
             return;
         }
@@ -479,6 +485,7 @@ public:
                 // Use the audio source name as the file path
                 // In ARA, the audio source name is typically the file path
                 audioFilePath = audioSourceName;
+                DBG ("Found audio source: " + audioSourceName);
                 break;
             }
         }
@@ -486,6 +493,7 @@ public:
         // If we couldn't find the audio source, return error
         if (audioFilePath.isEmpty())
         {
+            DBG ("Could not find audio source with ID: " + sourceID);
             complete (makeError ("Could not find audio source with ID: " + sourceID));
             return;
         }
@@ -494,10 +502,13 @@ public:
         juce::File sourceFile (audioFilePath);
         if (!sourceFile.existsAsFile())
         {
+            DBG ("File does not exist: " + audioFilePath);
             complete (makeError ("Could not find audio file for source: " + audioFilePath +
                                ". Try adding an item with this audio source to the project first."));
             return;
         }
+
+        DBG ("Audio file exists: " + audioFilePath);
 
         // Detect file type from extension
         juce::String sourceType = "WAVE";
@@ -513,31 +524,49 @@ public:
 
         // Get cursor position and track
         double cursorPos = rpr.GetCursorPositionEx (ReaperProxy::activeProject);
+        DBG ("Cursor position: " + juce::String(cursorPos));
+
         auto* track = rpr.GetLastTouchedTrack();
         if (track == nullptr)
             track = rpr.GetTrack (ReaperProxy::activeProject, 0);
 
         if (track == nullptr)
         {
+            DBG ("No track available");
             complete (makeError ("No track available"));
             return;
         }
+
+        DBG ("Track found, creating media item...");
 
         withReaperUndo ("Insert audio segment", [&] {
             // Create media item
             auto* item = rpr.AddMediaItemToTrack (track);
             if (item == nullptr)
+            {
+                DBG ("Failed to create media item");
                 return;
+            }
+
+            DBG ("Media item created, adding take...");
 
             // Add take to item
             auto* take = rpr.AddTakeToMediaItem (item);
             if (take == nullptr)
+            {
+                DBG ("Failed to add take");
                 return;
+            }
+
+            DBG ("Take added, modifying state chunk...");
 
             // Get and modify the item state chunk to add the source file
             char buffer[16384];
             if (!rpr.GetItemStateChunk (item, buffer, sizeof(buffer), false))
+            {
+                DBG ("Failed to get item state chunk");
                 return;
+            }
 
             juce::String chunk (buffer);
 
@@ -557,6 +586,7 @@ public:
                     // Set the modified chunk
                     if (rpr.SetItemStateChunk (item, chunk.toRawUTF8(), false))
                     {
+                        DBG ("State chunk set successfully");
                         // Set item position, length, and start offset
                         rpr.SetMediaItemPosition (item, cursorPos, false);
                         rpr.SetMediaItemLength (item, itemLength, false);
@@ -566,11 +596,25 @@ public:
 
                         // Select and update the item
                         rpr.GetSetMediaItemInfo (item, "B_UISEL", 1.0);
+                        DBG ("Audio item inserted successfully");
+                    }
+                    else
+                    {
+                        DBG ("Failed to set item state chunk");
                     }
                 }
+                else
+                {
+                    DBG ("Could not find closing > for SOURCE EMPTY");
+                }
+            }
+            else
+            {
+                DBG ("Could not find SOURCE EMPTY in chunk");
             }
         });
 
+        DBG ("insertAudioAtCursor complete");
         complete (juce::var());
     }
 

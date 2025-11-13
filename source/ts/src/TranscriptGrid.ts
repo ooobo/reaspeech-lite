@@ -196,21 +196,35 @@ export default class TranscriptGrid {
       }
     } else if (params.column.getColId() === 'start') {
       const target = params.event.target as HTMLElement;
+      console.log('Raw timecode cell clicked', {
+        tagName: target.tagName,
+        sourceID: params.data.sourceID,
+        start: params.data.start,
+        end: params.data.end
+      });
       if (target.tagName === 'A') {
         // Insert audio item at cursor position
+        console.log('Calling insertRawTimecode');
         this.insertRawTimecode(params.data.start, params.data.end, params.data.sourceID);
       }
     }
   }
 
   insertRawTimecode(start: number, end: number, sourceID: string) {
+    console.log('insertRawTimecode called', { start, end, sourceID });
     // Import Native dynamically to avoid circular dependencies
     import('./Native').then(module => {
       const native = new module.default();
+      console.log('About to call native.insertAudioAtCursor');
       native.insertAudioAtCursor(sourceID, start, end).then((result: any) => {
+        console.log('insertAudioAtCursor result:', result);
         if (result && result.error) {
           console.error('Failed to insert audio:', result.error);
+        } else {
+          console.log('Audio inserted successfully');
         }
+      }).catch((error: any) => {
+        console.error('Error calling insertAudioAtCursor:', error);
       });
     });
   }
