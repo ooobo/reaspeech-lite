@@ -46,6 +46,7 @@ struct ReaperProxy
         hasSetMediaItemPosition = reaperHost->getReaperApi("SetMediaItemPosition");
         hasSetOnlyTrackSelected = reaperHost->getReaperApi("SetOnlyTrackSelected");
         hasSetTakeMarker = reaperHost->getReaperApi("SetTakeMarker");
+        hasShowConsoleMsg = reaperHost->getReaperApi("ShowConsoleMsg");
         hasUndo_BeginBlock2 = reaperHost->getReaperApi("Undo_BeginBlock2");
         hasUndo_EndBlock2 = reaperHost->getReaperApi("Undo_EndBlock2");
     }
@@ -202,6 +203,12 @@ struct ReaperProxy
     int SetTakeMarker (MediaTake* take, int idx, const char* name, double* srcpos, int* color)
     {
         REAPER_CALL(SetTakeMarker, int (*) (MediaTake*, int, const char*, double*, int*), take, idx, name, srcpos, color)
+    }
+
+    void* hasShowConsoleMsg = nullptr;
+    void ShowConsoleMsg (const char* msg)
+    {
+        REAPER_CALL(ShowConsoleMsg, void (*) (const char*), msg)
     }
 
     void* hasUndo_BeginBlock2 = nullptr;
