@@ -23,10 +23,14 @@ struct ReaperProxy
         if (reaperHost == nullptr)
             return;
 
+        hasAddMediaItemToTrack = reaperHost->getReaperApi("AddMediaItemToTrack");
         hasAddProjectMarker2 = reaperHost->getReaperApi("AddProjectMarker2");
+        hasAddTakeToMediaItem = reaperHost->getReaperApi("AddTakeToMediaItem");
         hasGetCursorPositionEx = reaperHost->getReaperApi("GetCursorPositionEx");
         hasGetItemStateChunk = reaperHost->getReaperApi("GetItemStateChunk");
+        hasGetLastTouchedTrack = reaperHost->getReaperApi("GetLastTouchedTrack");
         hasGetSelectedMediaItem = reaperHost->getReaperApi("GetSelectedMediaItem");
+        hasGetSetMediaItemInfo = reaperHost->getReaperApi("GetSetMediaItemInfo");
         hasGetSetMediaTrackInfo_String = reaperHost->getReaperApi("GetSetMediaTrackInfo_String");
         hasGetTrack = reaperHost->getReaperApi("GetTrack");
         hasInsertTrackInProject = reaperHost->getReaperApi("InsertTrackInProject");
@@ -44,6 +48,7 @@ struct ReaperProxy
 
     class MediaItem;
     class MediaTrack;
+    class MediaTake;
     class ReaProject;
 
     static constexpr ReaProject* activeProject = nullptr;
@@ -56,10 +61,22 @@ struct ReaperProxy
     else \
         throw Missing (#functionName);
 
+    void* hasAddMediaItemToTrack = nullptr;
+    MediaItem* AddMediaItemToTrack (MediaTrack* tr)
+    {
+        REAPER_CALL(AddMediaItemToTrack, MediaItem* (*) (MediaTrack*), tr)
+    }
+
     void* hasAddProjectMarker2 = nullptr;
     int AddProjectMarker2 (ReaProject* proj, bool isrgn, double pos, double rgnend, const char* name, int wantidx, int color)
     {
         REAPER_CALL(AddProjectMarker2, int (*) (ReaProject*, bool, double, double, const char*, int, int), proj, isrgn, pos, rgnend, name, wantidx, color)
+    }
+
+    void* hasAddTakeToMediaItem = nullptr;
+    MediaTake* AddTakeToMediaItem (MediaItem* item)
+    {
+        REAPER_CALL(AddTakeToMediaItem, MediaTake* (*) (MediaItem*), item)
     }
 
     void* hasGetCursorPositionEx = nullptr;
@@ -74,10 +91,22 @@ struct ReaperProxy
         REAPER_CALL(GetItemStateChunk, bool (*) (MediaItem*, char*, int, bool), item, strNeedBig, strNeedBig_sz, isundoOptional)
     }
 
+    void* hasGetLastTouchedTrack = nullptr;
+    MediaTrack* GetLastTouchedTrack ()
+    {
+        REAPER_CALL(GetLastTouchedTrack, MediaTrack* (*) ())
+    }
+
     void* hasGetSelectedMediaItem = nullptr;
     MediaItem* GetSelectedMediaItem (ReaProject* proj, int selitem)
     {
         REAPER_CALL(GetSelectedMediaItem, MediaItem* (*) (ReaProject*, int), proj, selitem)
+    }
+
+    void* hasGetSetMediaItemInfo = nullptr;
+    double GetSetMediaItemInfo (MediaItem* item, const char* parmname, double setNewValue)
+    {
+        REAPER_CALL(GetSetMediaItemInfo, double (*) (MediaItem*, const char*, double), item, parmname, setNewValue)
     }
 
     void* hasGetSetMediaTrackInfo_String = nullptr;

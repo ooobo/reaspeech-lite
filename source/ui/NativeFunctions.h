@@ -56,6 +56,7 @@ public:
             .withNativeFunction ("getRegionSequences", bindFn (&NativeFunctions::getRegionSequences))
             .withNativeFunction ("getTranscriptionStatus", bindFn (&NativeFunctions::getTranscriptionStatus))
             .withNativeFunction ("getWhisperLanguages", bindFn (&NativeFunctions::getWhisperLanguages))
+            .withNativeFunction ("insertAudioAtCursor", bindFn (&NativeFunctions::insertAudioAtCursor))
             .withNativeFunction ("play", bindFn (&NativeFunctions::play))
             .withNativeFunction ("stop", bindFn (&NativeFunctions::stop))
             .withNativeFunction ("saveFile", bindFn (&NativeFunctions::saveFile))
@@ -442,6 +443,141 @@ public:
             return;
         }
         complete (makeError ("Audio source not found"));
+    }
+
+    void insertAudioAtCursor (const juce::var& args, std::function<void (const juce::var&)> complete)
+    {
+        // Validate arguments: sourceID, startTime, endTime
+        if (!args.isArray() || args.size() < 3)
+        {
+            complete (makeError ("Invalid arguments"));
+            return;
+        }
+
+        const auto sourceID = args[0].toString();
+        const double startTime = args[1];
+        const double endTime = args[2];
+        const double itemLength = endTime - startTime;
+
+        // Find the audio source
+        auto* document = getDocument();
+        if (!document)
+        {
+            complete (makeError ("Document not found"));
+            return;
+        }
+
+        juce::String audioFilePath;
+        juce::String audioSourceName;
+
+        for (const auto& audioSource : document->getAudioSources())
+        {
+            if (juce::String (audioSource->getPersistentID()) == sourceID)
+            {
+                audioSourceName = audioSource->getName();
+
+                // Try to get file path from audio source
+                if (auto* hostAudioSource = audioSource->getHostAudioSource())
+                {
+                    for (auto* file : hostAudioSource->getAudioFiles())
+                    {
+                        audioFilePath = file->getName();
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+
+        // If we couldn't find the file path, try using the audio source name as a file path
+        if (audioFilePath.isEmpty())
+        {
+            juce::File sourceFile (audioSourceName);
+            if (sourceFile.existsAsFile())
+            {
+                audioFilePath = sourceFile.getFullPathName();
+            }
+            else
+            {
+                complete (makeError ("Could not find audio file for source: " + audioSourceName +
+                                   ". Try adding an item with this audio source to the project first."));
+                return;
+            }
+        }
+
+        // Detect file type from extension
+        juce::String sourceType = "WAVE";
+        juce::String extension = juce::File(audioFilePath).getFileExtension().toLowerCase();
+        if (extension == ".mp3")
+            sourceType = "MP3";
+        else if (extension == ".flac")
+            sourceType = "FLAC";
+        else if (extension == ".ogg")
+            sourceType = "OGG";
+        else if (extension == ".bwf")
+            sourceType = "WAVE"; // BWF is a variant of WAVE format
+
+        // Get cursor position and track
+        double cursorPos = rpr.GetCursorPositionEx (ReaperProxy::activeProject);
+        auto* track = rpr.GetLastTouchedTrack();
+        if (track == nullptr)
+            track = rpr.GetTrack (ReaperProxy::activeProject, 0);
+
+        if (track == nullptr)
+        {
+            complete (makeError ("No track available"));
+            return;
+        }
+
+        withReaperUndo ("Insert audio segment", [&] {
+            // Create media item
+            auto* item = rpr.AddMediaItemToTrack (track);
+            if (item == nullptr)
+                return;
+
+            // Add take to item
+            auto* take = rpr.AddTakeToMediaItem (item);
+            if (take == nullptr)
+                return;
+
+            // Get and modify the item state chunk to add the source file
+            char buffer[16384];
+            if (!rpr.GetItemStateChunk (item, buffer, sizeof(buffer), false))
+                return;
+
+            juce::String chunk (buffer);
+
+            // Find SOURCE EMPTY and replace it with actual source
+            auto sourceStart = chunk.indexOf ("SOURCE EMPTY");
+            if (sourceStart >= 0)
+            {
+                auto sourceEnd = chunk.indexOf (">", sourceStart);
+                if (sourceEnd >= 0)
+                {
+                    juce::String newSource;
+                    newSource << "SOURCE " << sourceType << "\n";
+                    newSource << "  FILE \"" << audioFilePath << "\"\n";
+
+                    chunk = chunk.replaceSection (sourceStart, sourceEnd - sourceStart, newSource);
+
+                    // Set the modified chunk
+                    if (rpr.SetItemStateChunk (item, chunk.toRawUTF8(), false))
+                    {
+                        // Set item position, length, and start offset
+                        rpr.SetMediaItemPosition (item, cursorPos, false);
+                        rpr.SetMediaItemLength (item, itemLength, false);
+                        rpr.GetSetMediaItemInfo (item, "D_POSITION", cursorPos);
+                        rpr.GetSetMediaItemInfo (item, "D_LENGTH", itemLength);
+                        rpr.GetSetMediaItemInfo (item, "D_SNAPOFFSET", startTime);
+
+                        // Select and update the item
+                        rpr.GetSetMediaItemInfo (item, "B_UISEL", 1.0);
+                    }
+                }
+            }
+        });
+
+        complete (juce::var());
     }
 
 private:

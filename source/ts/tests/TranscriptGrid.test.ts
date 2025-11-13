@@ -176,13 +176,15 @@ describe('TranscriptGrid', () => {
   it('should return correct column definitions', () => {
     const columnDefs = grid.getColumnDefs();
 
-    expect(columnDefs).toHaveLength(6);
+    expect(columnDefs).toHaveLength(7);
     expect(columnDefs[0].field).toBe('id');
     expect(columnDefs[1].field).toBe('playbackStart');
     expect(columnDefs[2].field).toBe('playbackEnd');
     expect(columnDefs[3].field).toBe('text');
     expect(columnDefs[4].field).toBe('score');
     expect(columnDefs[5].field).toBe('source');
+    expect(columnDefs[6].field).toBe('start');
+    expect(columnDefs[6].headerName).toBe('Raw Timecode');
   });
 
   it('should generate correct grid options', () => {

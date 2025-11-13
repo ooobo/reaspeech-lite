@@ -15,6 +15,7 @@ export class MockNative {
   public getRegionSequences: jest.Mock;
   public getTranscriptionStatus: jest.Mock;
   public getWhisperLanguages: jest.Mock;
+  public insertAudioAtCursor: jest.Mock;
   public play: jest.Mock;
   public setAudioSourceTranscript: jest.Mock;
   public setPlaybackPosition: jest.Mock;
@@ -37,6 +38,7 @@ export class MockNative {
     this.getRegionSequences = this.createMock('getRegionSequences');
     this.getTranscriptionStatus = this.createMock('getTranscriptionStatus');
     this.getWhisperLanguages = this.createMock('getWhisperLanguages');
+    this.insertAudioAtCursor = this.createMock('insertAudioAtCursor');
     this.play = this.createMock('play');
     this.setAudioSourceTranscript = this.createMock('setAudioSourceTranscript');
     this.setPlaybackPosition = this.createMock('setPlaybackPosition');
@@ -105,6 +107,7 @@ export class MockNative {
     this.getRegionSequences.mockReturnValue(Promise.resolve([]));
     this.getTranscriptionStatus.mockReturnValue(Promise.resolve({"status": "", "progress": 0}));
     this.getWhisperLanguages.mockReturnValue(Promise.resolve([]));
+    this.insertAudioAtCursor.mockReturnValue(Promise.resolve());
     this.play.mockReturnValue(Promise.resolve());
     this.setAudioSourceTranscript.mockReturnValue(Promise.resolve());
     this.setPlaybackPosition.mockReturnValue(Promise.resolve());

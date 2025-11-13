@@ -11,6 +11,7 @@ export default class Native {
   getRegionSequences = Juce.getNativeFunction("getRegionSequences");
   getTranscriptionStatus = Juce.getNativeFunction("getTranscriptionStatus");
   getWhisperLanguages = Juce.getNativeFunction("getWhisperLanguages");
+  insertAudioAtCursor = Juce.getNativeFunction("insertAudioAtCursor");
   play = Juce.getNativeFunction("play");
   stop = Juce.getNativeFunction("stop");
   saveFile = Juce.getNativeFunction("saveFile");
