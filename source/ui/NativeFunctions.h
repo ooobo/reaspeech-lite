@@ -474,35 +474,29 @@ public:
         {
             if (juce::String (audioSource->getPersistentID()) == sourceID)
             {
-                audioSourceName = audioSource->getName();
+                audioSourceName = SafeUTF8::encode (audioSource->getName());
 
-                // Try to get file path from audio source
-                if (auto* hostAudioSource = audioSource->getHostAudioSource())
-                {
-                    for (auto* file : hostAudioSource->getAudioFiles())
-                    {
-                        audioFilePath = file->getName();
-                        break;
-                    }
-                }
+                // Use the audio source name as the file path
+                // In ARA, the audio source name is typically the file path
+                audioFilePath = audioSourceName;
                 break;
             }
         }
 
-        // If we couldn't find the file path, try using the audio source name as a file path
+        // If we couldn't find the audio source, return error
         if (audioFilePath.isEmpty())
         {
-            juce::File sourceFile (audioSourceName);
-            if (sourceFile.existsAsFile())
-            {
-                audioFilePath = sourceFile.getFullPathName();
-            }
-            else
-            {
-                complete (makeError ("Could not find audio file for source: " + audioSourceName +
-                                   ". Try adding an item with this audio source to the project first."));
-                return;
-            }
+            complete (makeError ("Could not find audio source with ID: " + sourceID));
+            return;
+        }
+
+        // Verify the file exists
+        juce::File sourceFile (audioFilePath);
+        if (!sourceFile.existsAsFile())
+        {
+            complete (makeError ("Could not find audio file for source: " + audioFilePath +
+                               ". Try adding an item with this audio source to the project first."));
+            return;
         }
 
         // Detect file type from extension
@@ -551,7 +545,7 @@ public:
             auto sourceStart = chunk.indexOf ("SOURCE EMPTY");
             if (sourceStart >= 0)
             {
-                auto sourceEnd = chunk.indexOf (">", sourceStart);
+                auto sourceEnd = chunk.indexOf (sourceStart, ">");
                 if (sourceEnd >= 0)
                 {
                     juce::String newSource;
