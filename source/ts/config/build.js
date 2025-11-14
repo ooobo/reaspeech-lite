@@ -12,6 +12,7 @@ const buildOptions = {
   target: 'es2019',
   minify: false,
   sourcemap: true,
+  external: ['juce-framework-frontend'],
 };
 
 // Helper function to get formatted timestamp
