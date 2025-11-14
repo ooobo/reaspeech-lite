@@ -30,6 +30,7 @@ struct ReaperProxy
         hasCountSelectedTracks = reaperHost->getReaperApi("CountSelectedTracks");
         hasGetActiveTake = reaperHost->getReaperApi("GetActiveTake");
         hasGetCursorPositionEx = reaperHost->getReaperApi("GetCursorPositionEx");
+        hasGetItemStateChunk = reaperHost->getReaperApi("GetItemStateChunk");
         hasGetLastTouchedTrack = reaperHost->getReaperApi("GetLastTouchedTrack");
         hasGetMediaItem = reaperHost->getReaperApi("GetMediaItem");
         hasGetMediaItemTake_Source = reaperHost->getReaperApi("GetMediaItemTake_Source");
@@ -45,6 +46,7 @@ struct ReaperProxy
         hasPreventUIRefresh = reaperHost->getReaperApi("PreventUIRefresh");
         hasSelectAllMediaItems = reaperHost->getReaperApi("SelectAllMediaItems");
         hasSetEditCurPos2 = reaperHost->getReaperApi("SetEditCurPos2");
+        hasSetItemStateChunk = reaperHost->getReaperApi("SetItemStateChunk");
         hasSetMediaItemLength = reaperHost->getReaperApi("SetMediaItemLength");
         hasSetMediaItemPosition = reaperHost->getReaperApi("SetMediaItemPosition");
         hasSetMediaItemTake_Source = reaperHost->getReaperApi("SetMediaItemTake_Source");
@@ -109,6 +111,12 @@ struct ReaperProxy
     double GetCursorPositionEx (ReaProject* proj)
     {
         REAPER_CALL(GetCursorPositionEx, double (*) (ReaProject*), proj)
+    }
+
+    void* hasGetItemStateChunk = nullptr;
+    bool GetItemStateChunk (MediaItem* item, char* strNeedBig, int strNeedBig_sz, bool isundoOptional)
+    {
+        REAPER_CALL(GetItemStateChunk, bool (*) (MediaItem*, char*, int, bool), item, strNeedBig, strNeedBig_sz, isundoOptional)
     }
 
     void* hasGetLastTouchedTrack = nullptr;
@@ -201,6 +209,12 @@ struct ReaperProxy
     void SetEditCurPos2 (ReaProject* proj, double time, bool moveview, bool seekplay)
     {
         REAPER_CALL(SetEditCurPos2, void (*) (ReaProject*, double, bool, bool), proj, time, moveview, seekplay)
+    }
+
+    void* hasSetItemStateChunk = nullptr;
+    bool SetItemStateChunk (MediaItem* item, const char* str, bool isundoOptional)
+    {
+        REAPER_CALL(SetItemStateChunk, bool (*) (MediaItem*, const char*, bool), item, str, isundoOptional)
     }
 
     void* hasSetMediaItemLength = nullptr;

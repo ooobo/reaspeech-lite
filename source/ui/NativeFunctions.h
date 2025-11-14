@@ -488,12 +488,9 @@ public:
 
     void insertAudioAtCursor (const juce::var& args, std::function<void (const juce::var&)> complete)
     {
-        logToConsole ("ReaSpeechLite: insertAudioAtCursor called");
-
         // Validate arguments: filePath, startTime, endTime
         if (!args.isArray() || args.size() < 3 || !args[0].isString())
         {
-            logToConsole ("ReaSpeechLite: Invalid arguments");
             complete (makeError ("Invalid arguments"));
             return;
         }
@@ -503,12 +500,9 @@ public:
         const double endTime = args[2];
         const double itemLength = endTime - startTime;
 
-        logToConsole ("ReaSpeechLite: insertAudioAtCursor - filePath=" + audioFilePath + ", startTime=" + juce::String(startTime) + ", endTime=" + juce::String(endTime));
-
         // Verify the file exists
         if (audioFilePath.isEmpty())
         {
-            logToConsole ("ReaSpeechLite: Empty file path");
             complete (makeError ("Audio file path is empty"));
             return;
         }
@@ -516,7 +510,6 @@ public:
         juce::File sourceFile (audioFilePath);
         if (!sourceFile.existsAsFile())
         {
-            logToConsole ("ReaSpeechLite: File does not exist: " + audioFilePath);
             complete (makeError ("Audio file not found: " + audioFilePath));
             return;
         }
@@ -540,14 +533,12 @@ public:
 
         if (track == nullptr)
         {
-            logToConsole ("ReaSpeechLite: No track selected or available");
             complete (makeError ("No track selected or available"));
             return;
         }
 
         // Get cursor position
         const auto cursorPos = rpr.GetCursorPositionEx (ReaperProxy::activeProject);
-        logToConsole ("ReaSpeechLite: Cursor position: " + juce::String(cursorPos));
 
         // Create media item and insert audio
         juce::String errorMessage;
@@ -557,21 +548,18 @@ public:
             if (item == nullptr)
             {
                 errorMessage = "Failed to create media item";
-                logToConsole("ReaSpeechLite: " + errorMessage);
                 return;
             }
 
             // Set item position and length
             rpr.SetMediaItemPosition (item, cursorPos, true);
             rpr.SetMediaItemLength (item, itemLength, true);
-            logToConsole("ReaSpeechLite: Set item position: " + juce::String(cursorPos) + ", length: " + juce::String(itemLength));
 
             // Add take to item
             auto* take = rpr.AddTakeToMediaItem (item);
             if (take == nullptr)
             {
                 errorMessage = "Failed to add take to item";
-                logToConsole("ReaSpeechLite: " + errorMessage);
                 return;
             }
 
@@ -580,17 +568,13 @@ public:
             if (pcmSource == nullptr)
             {
                 errorMessage = "Failed to create PCM source from file: " + audioFilePath;
-                logToConsole("ReaSpeechLite: " + errorMessage);
                 return;
             }
-
-            logToConsole("ReaSpeechLite: Created PCM source for: " + audioFilePath);
 
             // Set the source on the take
             if (!rpr.SetMediaItemTake_Source (take, pcmSource))
             {
                 errorMessage = "Failed to set take source";
-                logToConsole("ReaSpeechLite: " + errorMessage);
                 return;
             }
 
@@ -598,10 +582,7 @@ public:
             if (startTime > 0.0)
             {
                 rpr.GetSetMediaItemInfo (item, "D_SNAPOFFSET", startTime);
-                logToConsole("ReaSpeechLite: Set source offset to " + juce::String(startTime));
             }
-
-            logToConsole("ReaSpeechLite: Audio item inserted successfully");
         });
 
         if (errorMessage.isNotEmpty())
@@ -610,7 +591,6 @@ public:
         }
         else
         {
-            logToConsole ("ReaSpeechLite: insertAudioAtCursor complete");
             complete (juce::var());
         }
     }
@@ -669,17 +649,6 @@ private:
         juce::DynamicObject::Ptr error = new juce::DynamicObject();
         error->setProperty ("error", message);
         return juce::var (error.get());
-    }
-
-    void logToConsole (const juce::String& message)
-    {
-        // Only log to REAPER console if debug mode is enabled
-        if (debugMode.load() && rpr.hasShowConsoleMsg)
-        {
-            rpr.ShowConsoleMsg((message + "\n").toRawUTF8());
-        }
-        // Always log with DBG for debugging outside REAPER (development builds)
-        DBG(message);
     }
 
     void addReaperMarkers (const juce::Array<juce::var>* markers, const MarkerType::Enum markerType)
