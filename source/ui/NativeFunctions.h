@@ -562,8 +562,8 @@ public:
             }
 
             // Set item position and length
-            rpr.SetMediaItemPosition (item, cursorPos, false);
-            rpr.SetMediaItemLength (item, itemLength, false);
+            rpr.SetMediaItemPosition (item, cursorPos, true);
+            rpr.SetMediaItemLength (item, itemLength, true);
             logToConsole("ReaSpeechLite: Set item position: " + juce::String(cursorPos) + ", length: " + juce::String(itemLength));
 
             // Add take to item

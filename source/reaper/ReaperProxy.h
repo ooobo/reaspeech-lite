@@ -41,6 +41,7 @@ struct ReaperProxy
         hasGetSetMediaItemTakeInfo_String = reaperHost->getReaperApi("GetSetMediaItemTakeInfo_String");
         hasGetSetMediaTrackInfo_String = reaperHost->getReaperApi("GetSetMediaTrackInfo_String");
         hasGetTrack = reaperHost->getReaperApi("GetTrack");
+        hasInsertMedia = reaperHost->getReaperApi("InsertMedia");
         hasInsertTrackInProject = reaperHost->getReaperApi("InsertTrackInProject");
         hasMain_OnCommandEx = reaperHost->getReaperApi("Main_OnCommandEx");
         hasPCM_Source_CreateFromFile = reaperHost->getReaperApi("PCM_Source_CreateFromFile");
@@ -180,6 +181,12 @@ struct ReaperProxy
     MediaTrack* GetTrack (ReaProject* proj, int trackidx)
     {
         REAPER_CALL(GetTrack, MediaTrack* (*) (ReaProject*, int), proj, trackidx)
+    }
+
+    void* hasInsertMedia = nullptr;
+    void InsertMedia (const char* file, int mode)
+    {
+        REAPER_CALL(InsertMedia, void (*) (const char*, int), file, mode)
     }
 
     void* hasInsertTrackInProject = nullptr;
