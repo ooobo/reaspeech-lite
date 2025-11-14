@@ -578,11 +578,8 @@ public:
                 return;
             }
 
-            // Set source offset (start time within the audio file)
-            if (startTime > 0.0)
-            {
-                rpr.GetSetMediaItemInfo (item, "D_SNAPOFFSET", startTime);
-            }
+            // Set take start offset (where in the audio file to start playing)
+            rpr.GetSetMediaItemTakeInfo_Value (take, "D_STARTOFFS", startTime);
         });
 
         if (errorMessage.isNotEmpty())
