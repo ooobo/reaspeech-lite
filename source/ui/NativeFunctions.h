@@ -131,13 +131,52 @@ public:
             for (const auto& as : document->getAudioSources())
             {
                 juce::DynamicObject::Ptr audioSource = new juce::DynamicObject();
-                audioSource->setProperty ("name", SafeUTF8::encode (as->getName()));
+                juce::String audioSourceName = SafeUTF8::encode (as->getName());
+                audioSource->setProperty ("name", audioSourceName);
                 audioSource->setProperty ("persistentID", juce::String (as->getPersistentID()));
                 audioSource->setProperty ("sampleRate", as->getSampleRate());
                 audioSource->setProperty ("sampleCount", (juce::int64) as->getSampleCount());
                 audioSource->setProperty ("duration", as->getDuration());
                 audioSource->setProperty ("channelCount", as->getChannelCount());
                 audioSource->setProperty ("merits64BitSamples", as->merits64BitSamples());
+
+                // Find the full file path by searching through existing media items
+                juce::String audioFilePath;
+                int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
+                for (int i = 0; i < numItems; ++i)
+                {
+                    auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
+                    auto* take = rpr.GetActiveTake (item);
+                    if (take != nullptr && rpr.hasGetMediaItemTake_Source && rpr.hasGetMediaSourceFileName)
+                    {
+                        auto* source = rpr.GetMediaItemTake_Source (take);
+                        if (source != nullptr)
+                        {
+                            char filenamebuf[4096];
+                            rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
+                            juce::String filename (filenamebuf);
+
+                            // Match by comparing the source name with the filename
+                            if (filename.isNotEmpty() && (filename.contains(audioSourceName) || audioSourceName.contains(juce::File(filename).getFileNameWithoutExtension())))
+                            {
+                                audioFilePath = filename;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // If we couldn't find from items, try using the name directly
+                if (audioFilePath.isEmpty())
+                {
+                    juce::File sourceFile (audioSourceName);
+                    if (sourceFile.existsAsFile())
+                    {
+                        audioFilePath = sourceFile.getFullPathName();
+                    }
+                }
+
+                audioSource->setProperty ("filePath", audioFilePath);
                 audioSources.add (audioSource.get());
             }
             complete (juce::var (audioSources));
@@ -451,27 +490,34 @@ public:
     {
         logToConsole ("ReaSpeechLite: insertAudioAtCursor called");
 
-        // Validate arguments: sourceID, startTime, endTime
-        if (!args.isArray() || args.size() < 3)
+        // Validate arguments: filePath, startTime, endTime
+        if (!args.isArray() || args.size() < 3 || !args[0].isString())
         {
             logToConsole ("ReaSpeechLite: Invalid arguments");
             complete (makeError ("Invalid arguments"));
             return;
         }
 
-        const auto sourceID = args[0].toString();
+        const auto audioFilePath = args[0].toString();
         const double startTime = args[1];
         const double endTime = args[2];
         const double itemLength = endTime - startTime;
 
-        logToConsole ("ReaSpeechLite: insertAudioAtCursor - sourceID=" + sourceID + ", startTime=" + juce::String(startTime) + ", endTime=" + juce::String(endTime));
+        logToConsole ("ReaSpeechLite: insertAudioAtCursor - filePath=" + audioFilePath + ", startTime=" + juce::String(startTime) + ", endTime=" + juce::String(endTime));
 
-        // Get the audio source by persistent ID
-        auto* audioSource = getAudioSourceByPersistentID (sourceID);
-        if (audioSource == nullptr)
+        // Verify the file exists
+        if (audioFilePath.isEmpty())
         {
-            logToConsole ("ReaSpeechLite: Audio source not found");
-            complete (makeError ("Audio source not found"));
+            logToConsole ("ReaSpeechLite: Empty file path");
+            complete (makeError ("Audio file path is empty"));
+            return;
+        }
+
+        juce::File sourceFile (audioFilePath);
+        if (!sourceFile.existsAsFile())
+        {
+            logToConsole ("ReaSpeechLite: File does not exist: " + audioFilePath);
+            complete (makeError ("Audio file not found: " + audioFilePath));
             return;
         }
 
@@ -502,63 +548,6 @@ public:
         // Get cursor position
         const auto cursorPos = rpr.GetCursorPositionEx (ReaperProxy::activeProject);
         logToConsole ("ReaSpeechLite: Cursor position: " + juce::String(cursorPos));
-
-        // Find an existing media item that uses this audio source to get the file path
-        juce::String audioFilePath;
-        juce::String audioSourceName;
-
-        // Get the audio source name from ARA
-        audioSourceName = SafeUTF8::encode(audioSource->getName());
-        logToConsole ("ReaSpeechLite: Audio source name: " + audioSourceName);
-
-        int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
-        logToConsole ("ReaSpeechLite: Searching through " + juce::String(numItems) + " media items...");
-
-        for (int i = 0; i < numItems; ++i)
-        {
-            auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
-            auto* take = rpr.GetActiveTake (item);
-            if (take != nullptr && rpr.hasGetMediaItemTake_Source && rpr.hasGetMediaSourceFileName)
-            {
-                auto* source = rpr.GetMediaItemTake_Source (take);
-                if (source != nullptr)
-                {
-                    char filenamebuf[4096];
-                    rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
-                    juce::String filename (filenamebuf);
-
-                    // Match by comparing the source name with the filename
-                    if (filename.isNotEmpty() && (filename.contains(audioSourceName) || audioSourceName.contains(juce::File(filename).getFileNameWithoutExtension())))
-                    {
-                        audioFilePath = filename;
-                        logToConsole("ReaSpeechLite: Found matching file: " + audioFilePath);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // If we couldn't find the file from existing items, try using the audio source name directly
-        if (audioFilePath.isEmpty())
-        {
-            // The audio source name might be a full file path or just a filename
-            juce::File sourceFile (audioSourceName);
-
-            if (sourceFile.existsAsFile())
-            {
-                audioFilePath = sourceFile.getFullPathName();
-                logToConsole("ReaSpeechLite: Using audio source name as file path: " + audioFilePath);
-            }
-            else
-            {
-                // Try checking if it's a relative path by looking in common locations
-                // This is a fallback - the file should ideally be found from existing items
-                logToConsole ("ReaSpeechLite: Could not find audio file for source: " + audioSourceName);
-                complete (makeError ("Could not find audio file for source: " + audioSourceName +
-                                   ". Try adding an item with this audio source to the project first."));
-                return;
-            }
-        }
 
         // Create media item and insert audio
         juce::String errorMessage;

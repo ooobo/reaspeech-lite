@@ -20,6 +20,7 @@ interface TranscriptRow extends Segment {
   playbackEnd?: number;
   source: string;
   sourceID: string;
+  filePath: string;
 }
 
 export default class TranscriptGrid {
@@ -52,6 +53,7 @@ export default class TranscriptGrid {
       score: segment.score,
       source: audioSource.name,
       sourceID: audioSource.persistentID,
+      filePath: audioSource.filePath,
     }));
 
     this.addRows(rows);
@@ -199,16 +201,16 @@ export default class TranscriptGrid {
     } else if (params.column.getColId() === 'start') {
       const target = params.event.target as HTMLElement;
       if (target.tagName === 'A') {
-        this.insertRawTimecode(params.data.start, params.data.end, params.data.sourceID);
+        this.insertRawTimecode(params.data.start, params.data.end, params.data.filePath);
       }
     }
   }
 
-  insertRawTimecode(start: number, end: number, sourceID: string) {
+  insertRawTimecode(start: number, end: number, filePath: string) {
     // Import Native dynamically to avoid circular dependencies
     import('./Native').then(module => {
       const native = new module.default();
-      native.insertAudioAtCursor(sourceID, start, end).then((result: any) => {
+      native.insertAudioAtCursor(filePath, start, end).then((result: any) => {
         if (result && result.error) {
           this.onError(result.error);
         }
