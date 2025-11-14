@@ -466,158 +466,222 @@ public:
 
         logToConsole ("ReaSpeechLite: insertAudioAtCursor - sourceID=" + sourceID + ", startTime=" + juce::String(startTime) + ", endTime=" + juce::String(endTime));
 
-        // Find the audio source
-        auto* document = getDocument();
-        if (!document)
+        // Get the audio source by persistent ID
+        auto* audioSource = getAudioSourceByPersistentID (sourceID);
+        if (audioSource == nullptr)
         {
-            logToConsole ("ReaSpeechLite: Document not found");
-            complete (makeError ("Document not found"));
+            logToConsole ("ReaSpeechLite: Audio source not found");
+            complete (makeError ("Audio source not found"));
             return;
         }
 
+        // Get selected track or last touched track
+        ReaperProxy::MediaTrack* track = nullptr;
+
+        if (rpr.hasCountSelectedTracks && rpr.hasGetSelectedTrack)
+        {
+            int numSelectedTracks = rpr.CountSelectedTracks (ReaperProxy::activeProject);
+            if (numSelectedTracks > 0)
+            {
+                track = rpr.GetSelectedTrack (ReaperProxy::activeProject, 0);
+            }
+        }
+
+        if (track == nullptr && rpr.hasGetLastTouchedTrack)
+        {
+            track = rpr.GetLastTouchedTrack();
+        }
+
+        if (track == nullptr)
+        {
+            logToConsole ("ReaSpeechLite: No track selected or available");
+            complete (makeError ("No track selected or available"));
+            return;
+        }
+
+        // Get cursor position
+        const auto cursorPos = rpr.GetCursorPositionEx (ReaperProxy::activeProject);
+        logToConsole ("ReaSpeechLite: Cursor position: " + juce::String(cursorPos));
+
+        // Find an existing media item that uses this audio source to get the file path
         juce::String audioFilePath;
         juce::String audioSourceName;
 
-        for (const auto& audioSource : document->getAudioSources())
-        {
-            if (juce::String (audioSource->getPersistentID()) == sourceID)
-            {
-                audioSourceName = SafeUTF8::encode (audioSource->getName());
+        // Get the audio source name from ARA
+        audioSourceName = SafeUTF8::encode(audioSource->getName());
+        logToConsole ("ReaSpeechLite: Audio source name: " + audioSourceName);
 
-                // Use the audio source name as the file path
-                // In ARA, the audio source name is typically the file path
-                audioFilePath = audioSourceName;
-                logToConsole ("ReaSpeechLite: Found audio source: " + audioSourceName);
-                break;
+        int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
+        logToConsole ("ReaSpeechLite: Searching through " + juce::String(numItems) + " media items...");
+
+        for (int i = 0; i < numItems; ++i)
+        {
+            auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
+            auto* take = rpr.GetActiveTake (item);
+            if (take != nullptr && rpr.hasGetMediaItemTake_Source && rpr.hasGetMediaSourceFileName)
+            {
+                auto* source = rpr.GetMediaItemTake_Source (take);
+                if (source != nullptr)
+                {
+                    char filenamebuf[4096];
+                    rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
+                    juce::String filename (filenamebuf);
+
+                    // Match by comparing the source name with the filename
+                    if (filename.isNotEmpty() && (filename.contains(audioSourceName) || audioSourceName.contains(juce::File(filename).getFileNameWithoutExtension())))
+                    {
+                        audioFilePath = filename;
+                        logToConsole("ReaSpeechLite: Found matching file: " + audioFilePath);
+                        break;
+                    }
+                }
             }
         }
 
-        // If we couldn't find the audio source, return error
+        // If we couldn't find the file from existing items, try using the audio source name directly
         if (audioFilePath.isEmpty())
         {
-            logToConsole ("ReaSpeechLite: Could not find audio source with ID: " + sourceID);
-            complete (makeError ("Could not find audio source with ID: " + sourceID));
-            return;
+            // The audio source name might be a full file path or just a filename
+            juce::File sourceFile (audioSourceName);
+
+            if (sourceFile.existsAsFile())
+            {
+                audioFilePath = sourceFile.getFullPathName();
+                logToConsole("ReaSpeechLite: Using audio source name as file path: " + audioFilePath);
+            }
+            else
+            {
+                // Try checking if it's a relative path by looking in common locations
+                // This is a fallback - the file should ideally be found from existing items
+                logToConsole ("ReaSpeechLite: Could not find audio file for source: " + audioSourceName);
+                complete (makeError ("Could not find audio file for source: " + audioSourceName +
+                                   ". Try adding an item with this audio source to the project first."));
+                return;
+            }
         }
 
-        // Verify the file exists
-        juce::File sourceFile (audioFilePath);
-        if (!sourceFile.existsAsFile())
-        {
-            logToConsole ("ReaSpeechLite: File does not exist: " + audioFilePath);
-            complete (makeError ("Could not find audio file for source: " + audioFilePath +
-                               ". Try adding an item with this audio source to the project first."));
-            return;
-        }
-
-        logToConsole ("ReaSpeechLite: Audio file exists: " + audioFilePath);
-
-        // Detect file type from extension
-        juce::String sourceType = "WAVE";
-        juce::String extension = juce::File(audioFilePath).getFileExtension().toLowerCase();
-        if (extension == ".mp3")
-            sourceType = "MP3";
-        else if (extension == ".flac")
-            sourceType = "FLAC";
-        else if (extension == ".ogg")
-            sourceType = "OGG";
-        else if (extension == ".bwf")
-            sourceType = "WAVE"; // BWF is a variant of WAVE format
-
-        // Get cursor position and track
-        double cursorPos = rpr.GetCursorPositionEx (ReaperProxy::activeProject);
-        logToConsole ("ReaSpeechLite: Cursor position: " + juce::String(cursorPos));
-
-        auto* track = rpr.GetLastTouchedTrack();
-        if (track == nullptr)
-            track = rpr.GetTrack (ReaperProxy::activeProject, 0);
-
-        if (track == nullptr)
-        {
-            logToConsole ("ReaSpeechLite: No track available");
-            complete (makeError ("No track available"));
-            return;
-        }
-
-        logToConsole ("ReaSpeechLite: Track found, creating media item...");
-
+        // Create media item and insert audio
+        juce::String errorMessage;
         withReaperUndo ("Insert audio segment", [&] {
-            // Create media item
+            // Create new media item on the track
             auto* item = rpr.AddMediaItemToTrack (track);
             if (item == nullptr)
             {
-                logToConsole ("ReaSpeechLite: Failed to create media item");
+                errorMessage = "Failed to create media item";
+                logToConsole("ReaSpeechLite: " + errorMessage);
                 return;
             }
 
-            logToConsole ("ReaSpeechLite: Media item created, adding take...");
+            // Set item position and length
+            rpr.SetMediaItemPosition (item, cursorPos, false);
+            rpr.SetMediaItemLength (item, itemLength, false);
+            logToConsole("ReaSpeechLite: Set item position: " + juce::String(cursorPos) + ", length: " + juce::String(itemLength));
 
             // Add take to item
             auto* take = rpr.AddTakeToMediaItem (item);
             if (take == nullptr)
             {
-                logToConsole ("ReaSpeechLite: Failed to add take");
+                errorMessage = "Failed to add take to item";
+                logToConsole("ReaSpeechLite: " + errorMessage);
                 return;
             }
-
-            logToConsole ("ReaSpeechLite: Take added, modifying state chunk...");
 
             // Get and modify the item state chunk to add the source file
             char buffer[16384];
             if (!rpr.GetItemStateChunk (item, buffer, sizeof(buffer), false))
             {
-                logToConsole ("ReaSpeechLite: Failed to get item state chunk");
+                errorMessage = "Failed to get item state chunk";
+                logToConsole("ReaSpeechLite: " + errorMessage);
                 return;
             }
 
             juce::String chunk (buffer);
 
-            // Find SOURCE EMPTY and replace it with actual source
-            auto sourceStart = chunk.indexOf ("SOURCE EMPTY");
-            if (sourceStart >= 0)
-            {
-                auto sourceEnd = chunk.indexOf (sourceStart, ">");
-                if (sourceEnd >= 0)
-                {
-                    juce::String newSource;
-                    newSource << "SOURCE " << sourceType << "\n";
-                    newSource << "  FILE \"" << audioFilePath << "\"\n";
+            // Build proper RPP chunk for the take with source
+            // Replace backslashes with forward slashes for cross-platform compatibility
+            juce::String normalizedPath = audioFilePath.replaceCharacter('\\', '/');
+            logToConsole("ReaSpeechLite: Using audio file: " + normalizedPath);
 
-                    chunk = chunk.replaceSection (sourceStart, sourceEnd - sourceStart, newSource);
+            // Detect source type based on file extension
+            juce::String extension = juce::File(audioFilePath).getFileExtension().toLowerCase();
+            juce::String sourceType = "WAVE"; // Default to WAVE
+
+            if (extension == ".mp3")
+                sourceType = "MP3";
+            else if (extension == ".flac")
+                sourceType = "FLAC";
+            else if (extension == ".ogg")
+                sourceType = "OGG";
+            else if (extension == ".m4a" || extension == ".mp4" || extension == ".aac")
+                sourceType = "MP4";
+            else if (extension == ".bwf")
+                sourceType = "WAVE"; // BWF is a variant of WAVE format
+            // For .wav and any other format, use WAVE as default
+
+            // Build the proper source chunk with the audio file
+            juce::String sourceChunk = juce::String("<SOURCE ") + sourceType + "\n";
+            sourceChunk << "  FILE \"" << normalizedPath << "\"\n";
+            sourceChunk << ">";
+
+            // Find and replace the <SOURCE EMPTY> section
+            int sourcePosIdx = chunk.indexOf ("<SOURCE EMPTY");
+            if (sourcePosIdx >= 0)
+            {
+                // Find the closing >
+                int closePos = chunk.indexOfChar (sourcePosIdx, '>');
+                if (closePos >= 0)
+                {
+                    // Replace <SOURCE EMPTY\n> with our source chunk
+                    chunk = chunk.substring (0, sourcePosIdx) + sourceChunk + chunk.substring (closePos + 1);
+
+                    // Now update SOFFS (Source Offset) field in the chunk
+                    int soffsPos = chunk.indexOf ("SOFFS ");
+                    if (soffsPos >= 0)
+                    {
+                        // Find end of SOFFS line
+                        int soffsEnd = chunk.indexOfChar (soffsPos, '\n');
+                        if (soffsEnd >= 0)
+                        {
+                            // Replace the SOFFS line with the new value
+                            juce::String newSoffs = "SOFFS " + juce::String(startTime, 6);
+                            chunk = chunk.substring (0, soffsPos) + newSoffs + chunk.substring (soffsEnd);
+                            logToConsole("ReaSpeechLite: Set source offset to " + juce::String(startTime));
+                        }
+                    }
 
                     // Set the modified chunk
                     if (rpr.SetItemStateChunk (item, chunk.toRawUTF8(), false))
                     {
-                        logToConsole ("ReaSpeechLite: State chunk set successfully");
-                        // Set item position, length, and start offset
-                        rpr.SetMediaItemPosition (item, cursorPos, false);
-                        rpr.SetMediaItemLength (item, itemLength, false);
-                        rpr.GetSetMediaItemInfo (item, "D_POSITION", cursorPos);
-                        rpr.GetSetMediaItemInfo (item, "D_LENGTH", itemLength);
-                        rpr.GetSetMediaItemInfo (item, "D_SNAPOFFSET", startTime);
-
-                        // Select and update the item
-                        rpr.GetSetMediaItemInfo (item, "B_UISEL", 1.0);
-                        logToConsole ("ReaSpeechLite: Audio item inserted successfully");
+                        logToConsole("ReaSpeechLite: Audio item inserted successfully");
                     }
                     else
                     {
-                        logToConsole ("ReaSpeechLite: Failed to set item state chunk");
+                        errorMessage = "Failed to set item state chunk";
+                        logToConsole("ReaSpeechLite: " + errorMessage);
                     }
                 }
                 else
                 {
-                    logToConsole ("ReaSpeechLite: Could not find closing > for SOURCE EMPTY");
+                    errorMessage = "Could not find closing > for SOURCE EMPTY";
+                    logToConsole("ReaSpeechLite: " + errorMessage);
                 }
             }
             else
             {
-                logToConsole ("ReaSpeechLite: Could not find SOURCE EMPTY in chunk");
+                errorMessage = "Could not find SOURCE EMPTY in chunk";
+                logToConsole("ReaSpeechLite: " + errorMessage);
             }
         });
 
-        logToConsole ("ReaSpeechLite: insertAudioAtCursor complete");
-        complete (juce::var());
+        if (errorMessage.isNotEmpty())
+        {
+            complete (makeError (errorMessage));
+        }
+        else
+        {
+            logToConsole ("ReaSpeechLite: insertAudioAtCursor complete");
+            complete (juce::var());
+        }
     }
 
     void setDebugMode (const juce::var& args, std::function<void (const juce::var&)> complete)
