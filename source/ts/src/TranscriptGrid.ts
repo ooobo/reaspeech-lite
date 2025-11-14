@@ -189,23 +189,28 @@ export default class TranscriptGrid {
   }
 
   handleCellClicked(params: CellClickedEvent) {
-    if (params.column.getColId() === 'playbackStart' || params.column.getColId() === 'text') {
+    const colId = params.column.getColId();
+    console.log('Cell clicked:', colId, params.data);
+
+    if (colId === 'playbackStart' || colId === 'text') {
       const target = params.event.target as HTMLElement;
       if (target.tagName === 'A' && params.data.playbackStart !== null) {
         this.onPlayAt(params.data.playbackStart);
       }
-    } else if (params.column.getColId() === 'start') {
+    } else if (colId === 'start') {
       const target = params.event.target as HTMLElement;
       console.log('Raw timecode cell clicked', {
         tagName: target.tagName,
+        className: target.className,
         sourceID: params.data.sourceID,
         start: params.data.start,
         end: params.data.end
       });
       if (target.tagName === 'A') {
-        // Insert audio item at cursor position
         console.log('Calling insertRawTimecode');
         this.insertRawTimecode(params.data.start, params.data.end, params.data.sourceID);
+      } else {
+        console.log('Target is not an A tag, it is:', target.tagName);
       }
     }
   }
