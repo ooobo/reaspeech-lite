@@ -211,7 +211,11 @@ export default class App {
   }
 
   initTranscript() {
-    this.transcriptGrid = new TranscriptGrid('#transcript-grid', (seconds) => this.playAt(seconds));
+    this.transcriptGrid = new TranscriptGrid(
+      '#transcript-grid',
+      (seconds) => this.playAt(seconds),
+      (message) => this.showAlert('danger', message)
+    );
     return this.native.getAudioSources().then((audioSources: AudioSource[]) => {
       const promises = audioSources.map((audioSource) => {
         return this.mergeTranscript(audioSource);

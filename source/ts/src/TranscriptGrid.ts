@@ -26,10 +26,12 @@ export default class TranscriptGrid {
   private gridElement: HTMLElement;
   private gridApi: GridApi;
   private onPlayAt: (seconds: number) => void;
+  private onError: (message: string) => void;
   private rowData: TranscriptRow[] = [];
 
-  constructor(selector: string, onPlayAt: (seconds: number) => void) {
+  constructor(selector: string, onPlayAt: (seconds: number) => void, onError: (message: string) => void) {
     this.onPlayAt = onPlayAt;
+    this.onError = onError;
     this.gridElement = document.querySelector(selector) as HTMLElement;
     this.gridApi = createGrid(this.gridElement, this.getGridOptions());
   }
@@ -189,47 +191,27 @@ export default class TranscriptGrid {
   }
 
   handleCellClicked(params: CellClickedEvent) {
-    const colId = params.column.getColId();
-    console.log('Cell clicked:', colId, params.data);
-
-    if (colId === 'playbackStart' || colId === 'text') {
+    if (params.column.getColId() === 'playbackStart' || params.column.getColId() === 'text') {
       const target = params.event.target as HTMLElement;
       if (target.tagName === 'A' && params.data.playbackStart !== null) {
         this.onPlayAt(params.data.playbackStart);
       }
-    } else if (colId === 'start') {
+    } else if (params.column.getColId() === 'start') {
       const target = params.event.target as HTMLElement;
-      console.log('Raw timecode cell clicked', {
-        tagName: target.tagName,
-        className: target.className,
-        sourceID: params.data.sourceID,
-        start: params.data.start,
-        end: params.data.end
-      });
       if (target.tagName === 'A') {
-        console.log('Calling insertRawTimecode');
         this.insertRawTimecode(params.data.start, params.data.end, params.data.sourceID);
-      } else {
-        console.log('Target is not an A tag, it is:', target.tagName);
       }
     }
   }
 
   insertRawTimecode(start: number, end: number, sourceID: string) {
-    console.log('insertRawTimecode called', { start, end, sourceID });
     // Import Native dynamically to avoid circular dependencies
     import('./Native').then(module => {
       const native = new module.default();
-      console.log('About to call native.insertAudioAtCursor');
       native.insertAudioAtCursor(sourceID, start, end).then((result: any) => {
-        console.log('insertAudioAtCursor result:', result);
         if (result && result.error) {
-          console.error('Failed to insert audio:', result.error);
-        } else {
-          console.log('Audio inserted successfully');
+          this.onError(result.error);
         }
-      }).catch((error: any) => {
-        console.error('Error calling insertAudioAtCursor:', error);
       });
     });
   }

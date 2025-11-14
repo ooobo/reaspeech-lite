@@ -37,7 +37,8 @@ describe('TranscriptGrid', () => {
     mockElement = document.createElement('div');
     document.querySelector = jest.fn().mockReturnValue(mockElement);
     onPlayAt = jest.fn();
-    grid = new TranscriptGrid('#grid', onPlayAt);
+    const onError = jest.fn();
+    grid = new TranscriptGrid('#grid', onPlayAt, onError);
   });
 
   it('should initialize with correct selector and callback', () => {

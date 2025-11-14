@@ -449,12 +449,12 @@ public:
 
     void insertAudioAtCursor (const juce::var& args, std::function<void (const juce::var&)> complete)
     {
-        DBG ("insertAudioAtCursor called");
+        logToConsole ("ReaSpeechLite: insertAudioAtCursor called");
 
         // Validate arguments: sourceID, startTime, endTime
         if (!args.isArray() || args.size() < 3)
         {
-            DBG ("Invalid arguments");
+            logToConsole ("ReaSpeechLite: Invalid arguments");
             complete (makeError ("Invalid arguments"));
             return;
         }
@@ -464,13 +464,13 @@ public:
         const double endTime = args[2];
         const double itemLength = endTime - startTime;
 
-        DBG ("insertAudioAtCursor: sourceID=" + sourceID + ", startTime=" + juce::String(startTime) + ", endTime=" + juce::String(endTime));
+        logToConsole ("ReaSpeechLite: insertAudioAtCursor - sourceID=" + sourceID + ", startTime=" + juce::String(startTime) + ", endTime=" + juce::String(endTime));
 
         // Find the audio source
         auto* document = getDocument();
         if (!document)
         {
-            DBG ("Document not found");
+            logToConsole ("ReaSpeechLite: Document not found");
             complete (makeError ("Document not found"));
             return;
         }
@@ -487,7 +487,7 @@ public:
                 // Use the audio source name as the file path
                 // In ARA, the audio source name is typically the file path
                 audioFilePath = audioSourceName;
-                DBG ("Found audio source: " + audioSourceName);
+                logToConsole ("ReaSpeechLite: Found audio source: " + audioSourceName);
                 break;
             }
         }
@@ -495,7 +495,7 @@ public:
         // If we couldn't find the audio source, return error
         if (audioFilePath.isEmpty())
         {
-            DBG ("Could not find audio source with ID: " + sourceID);
+            logToConsole ("ReaSpeechLite: Could not find audio source with ID: " + sourceID);
             complete (makeError ("Could not find audio source with ID: " + sourceID));
             return;
         }
@@ -504,13 +504,13 @@ public:
         juce::File sourceFile (audioFilePath);
         if (!sourceFile.existsAsFile())
         {
-            DBG ("File does not exist: " + audioFilePath);
+            logToConsole ("ReaSpeechLite: File does not exist: " + audioFilePath);
             complete (makeError ("Could not find audio file for source: " + audioFilePath +
                                ". Try adding an item with this audio source to the project first."));
             return;
         }
 
-        DBG ("Audio file exists: " + audioFilePath);
+        logToConsole ("ReaSpeechLite: Audio file exists: " + audioFilePath);
 
         // Detect file type from extension
         juce::String sourceType = "WAVE";
@@ -526,7 +526,7 @@ public:
 
         // Get cursor position and track
         double cursorPos = rpr.GetCursorPositionEx (ReaperProxy::activeProject);
-        DBG ("Cursor position: " + juce::String(cursorPos));
+        logToConsole ("ReaSpeechLite: Cursor position: " + juce::String(cursorPos));
 
         auto* track = rpr.GetLastTouchedTrack();
         if (track == nullptr)
@@ -534,39 +534,39 @@ public:
 
         if (track == nullptr)
         {
-            DBG ("No track available");
+            logToConsole ("ReaSpeechLite: No track available");
             complete (makeError ("No track available"));
             return;
         }
 
-        DBG ("Track found, creating media item...");
+        logToConsole ("ReaSpeechLite: Track found, creating media item...");
 
         withReaperUndo ("Insert audio segment", [&] {
             // Create media item
             auto* item = rpr.AddMediaItemToTrack (track);
             if (item == nullptr)
             {
-                DBG ("Failed to create media item");
+                logToConsole ("ReaSpeechLite: Failed to create media item");
                 return;
             }
 
-            DBG ("Media item created, adding take...");
+            logToConsole ("ReaSpeechLite: Media item created, adding take...");
 
             // Add take to item
             auto* take = rpr.AddTakeToMediaItem (item);
             if (take == nullptr)
             {
-                DBG ("Failed to add take");
+                logToConsole ("ReaSpeechLite: Failed to add take");
                 return;
             }
 
-            DBG ("Take added, modifying state chunk...");
+            logToConsole ("ReaSpeechLite: Take added, modifying state chunk...");
 
             // Get and modify the item state chunk to add the source file
             char buffer[16384];
             if (!rpr.GetItemStateChunk (item, buffer, sizeof(buffer), false))
             {
-                DBG ("Failed to get item state chunk");
+                logToConsole ("ReaSpeechLite: Failed to get item state chunk");
                 return;
             }
 
@@ -588,7 +588,7 @@ public:
                     // Set the modified chunk
                     if (rpr.SetItemStateChunk (item, chunk.toRawUTF8(), false))
                     {
-                        DBG ("State chunk set successfully");
+                        logToConsole ("ReaSpeechLite: State chunk set successfully");
                         // Set item position, length, and start offset
                         rpr.SetMediaItemPosition (item, cursorPos, false);
                         rpr.SetMediaItemLength (item, itemLength, false);
@@ -598,25 +598,25 @@ public:
 
                         // Select and update the item
                         rpr.GetSetMediaItemInfo (item, "B_UISEL", 1.0);
-                        DBG ("Audio item inserted successfully");
+                        logToConsole ("ReaSpeechLite: Audio item inserted successfully");
                     }
                     else
                     {
-                        DBG ("Failed to set item state chunk");
+                        logToConsole ("ReaSpeechLite: Failed to set item state chunk");
                     }
                 }
                 else
                 {
-                    DBG ("Could not find closing > for SOURCE EMPTY");
+                    logToConsole ("ReaSpeechLite: Could not find closing > for SOURCE EMPTY");
                 }
             }
             else
             {
-                DBG ("Could not find SOURCE EMPTY in chunk");
+                logToConsole ("ReaSpeechLite: Could not find SOURCE EMPTY in chunk");
             }
         });
 
-        DBG ("insertAudioAtCursor complete");
+        logToConsole ("ReaSpeechLite: insertAudioAtCursor complete");
         complete (juce::var());
     }
 
@@ -674,6 +674,17 @@ private:
         juce::DynamicObject::Ptr error = new juce::DynamicObject();
         error->setProperty ("error", message);
         return juce::var (error.get());
+    }
+
+    void logToConsole (const juce::String& message)
+    {
+        // Only log to REAPER console if debug mode is enabled
+        if (debugMode.load() && rpr.hasShowConsoleMsg)
+        {
+            rpr.ShowConsoleMsg((message + "\n").toRawUTF8());
+        }
+        // Always log with DBG for debugging outside REAPER (development builds)
+        DBG(message);
     }
 
     void addReaperMarkers (const juce::Array<juce::var>* markers, const MarkerType::Enum markerType)
