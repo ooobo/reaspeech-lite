@@ -578,8 +578,8 @@ public:
                 return;
             }
 
-            // Set take start offset (where in the audio file to start playing)
-            rpr.GetSetMediaItemTakeInfo_Value (take, "D_STARTOFFS", startTime);
+            // TODO: Set source start offset
+            // For now, items will play from the beginning of the file
         });
 
         if (errorMessage.isNotEmpty())
