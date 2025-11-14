@@ -24,7 +24,8 @@ function makeAudioSource(name: string, persistentID: string): AudioSource {
     sampleCount: 441000,
     duration: 10,
     channelCount: 2,
-    merits64BitSamples: false
+    merits64BitSamples: false,
+    filePath: '/path/to/' + name + '.wav'
   };
 }
 
@@ -66,7 +67,8 @@ describe('TranscriptGrid', () => {
           text: 'Hello',
           score: 0.95,
           source: 'Test Audio',
-          sourceID: 'test123'
+          sourceID: 'test123',
+          filePath: '/path/to/Test Audio.wav'
         },
         {
           id: 'test123-1',
@@ -77,7 +79,8 @@ describe('TranscriptGrid', () => {
           text: 'World',
           score: 0.85,
           source: 'Test Audio',
-          sourceID: 'test123'
+          sourceID: 'test123',
+          filePath: '/path/to/Test Audio.wav'
         }
       ]
     });
@@ -217,7 +220,8 @@ describe('TranscriptGrid', () => {
         playbackStart: 0,
         playbackEnd: 0,
         text: '',
-        score: 0
+        score: 0,
+        filePath: '/path/to/Test Audio.wav'
       }
     })).toBe('test123-0');
   });
@@ -470,7 +474,8 @@ describe('TranscriptGrid', () => {
       text: 'Hello',
       score: 0.95,
       source: 'Test Audio',
-      sourceID: 'test123'
+      sourceID: 'test123',
+      filePath: '/path/to/Test Audio.wav'
     };
     const row2 = {
       id: 'test123-1',
@@ -479,7 +484,8 @@ describe('TranscriptGrid', () => {
       text: 'World',
       score: 0.85,
       source: 'Test Audio',
-      sourceID: 'test123'
+      sourceID: 'test123',
+      filePath: '/path/to/Test Audio.wav'
     };
     grid.addRows([row1, row2]);
 
@@ -509,7 +515,8 @@ describe('TranscriptGrid', () => {
       text: 'Hello',
       score: 0.95,
       source: 'Test Audio',
-      sourceID: 'test123'
+      sourceID: 'test123',
+      filePath: '/path/to/Test Audio.wav'
     };
     const row2 = {
       id: 'test123-1',
@@ -520,7 +527,8 @@ describe('TranscriptGrid', () => {
       text: 'World',
       score: 0.85,
       source: 'Test Audio',
-      sourceID: 'test123'
+      sourceID: 'test123',
+      filePath: '/path/to/Test Audio.wav'
     };
     grid.addRows([row1, row2]);
 
@@ -578,6 +586,7 @@ describe('TranscriptGrid', () => {
       score: 0.95,
       source: 'Test Audio',
       sourceID: 'test123',
+      filePath: '/path/to/Test Audio.wav'
     };
     const index = 0;
     const result = grid.processRowForSRT(row, index);
