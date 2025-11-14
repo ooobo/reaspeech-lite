@@ -575,91 +575,33 @@ public:
                 return;
             }
 
-            // Get and modify the item state chunk to add the source file
-            char buffer[16384];
-            if (!rpr.GetItemStateChunk (item, buffer, sizeof(buffer), false))
+            // Create PCM source from audio file
+            auto* pcmSource = rpr.PCM_Source_CreateFromFile (audioFilePath.toRawUTF8());
+            if (pcmSource == nullptr)
             {
-                errorMessage = "Failed to get item state chunk";
+                errorMessage = "Failed to create PCM source from file: " + audioFilePath;
                 logToConsole("ReaSpeechLite: " + errorMessage);
                 return;
             }
 
-            juce::String chunk (buffer);
+            logToConsole("ReaSpeechLite: Created PCM source for: " + audioFilePath);
 
-            // Build proper RPP chunk for the take with source
-            // Replace backslashes with forward slashes for cross-platform compatibility
-            juce::String normalizedPath = audioFilePath.replaceCharacter('\\', '/');
-            logToConsole("ReaSpeechLite: Using audio file: " + normalizedPath);
-
-            // Detect source type based on file extension
-            juce::String extension = juce::File(audioFilePath).getFileExtension().toLowerCase();
-            juce::String sourceType = "WAVE"; // Default to WAVE
-
-            if (extension == ".mp3")
-                sourceType = "MP3";
-            else if (extension == ".flac")
-                sourceType = "FLAC";
-            else if (extension == ".ogg")
-                sourceType = "OGG";
-            else if (extension == ".m4a" || extension == ".mp4" || extension == ".aac")
-                sourceType = "MP4";
-            else if (extension == ".bwf")
-                sourceType = "WAVE"; // BWF is a variant of WAVE format
-            // For .wav and any other format, use WAVE as default
-
-            // Build the proper source chunk with the audio file
-            juce::String sourceChunk = juce::String("<SOURCE ") + sourceType + "\n";
-            sourceChunk << "  FILE \"" << normalizedPath << "\"\n";
-            sourceChunk << ">";
-
-            // Find and replace the <SOURCE EMPTY> section
-            int sourcePosIdx = chunk.indexOf ("<SOURCE EMPTY");
-            if (sourcePosIdx >= 0)
+            // Set the source on the take
+            if (!rpr.SetMediaItemTake_Source (take, pcmSource))
             {
-                // Find the closing >
-                int closePos = chunk.indexOfChar (sourcePosIdx, '>');
-                if (closePos >= 0)
-                {
-                    // Replace <SOURCE EMPTY\n> with our source chunk
-                    chunk = chunk.substring (0, sourcePosIdx) + sourceChunk + chunk.substring (closePos + 1);
-
-                    // Now update SOFFS (Source Offset) field in the chunk
-                    int soffsPos = chunk.indexOf ("SOFFS ");
-                    if (soffsPos >= 0)
-                    {
-                        // Find end of SOFFS line
-                        int soffsEnd = chunk.indexOfChar (soffsPos, '\n');
-                        if (soffsEnd >= 0)
-                        {
-                            // Replace the SOFFS line with the new value
-                            juce::String newSoffs = "SOFFS " + juce::String(startTime, 6);
-                            chunk = chunk.substring (0, soffsPos) + newSoffs + chunk.substring (soffsEnd);
-                            logToConsole("ReaSpeechLite: Set source offset to " + juce::String(startTime));
-                        }
-                    }
-
-                    // Set the modified chunk
-                    if (rpr.SetItemStateChunk (item, chunk.toRawUTF8(), false))
-                    {
-                        logToConsole("ReaSpeechLite: Audio item inserted successfully");
-                    }
-                    else
-                    {
-                        errorMessage = "Failed to set item state chunk";
-                        logToConsole("ReaSpeechLite: " + errorMessage);
-                    }
-                }
-                else
-                {
-                    errorMessage = "Could not find closing > for SOURCE EMPTY";
-                    logToConsole("ReaSpeechLite: " + errorMessage);
-                }
-            }
-            else
-            {
-                errorMessage = "Could not find SOURCE EMPTY in chunk";
+                errorMessage = "Failed to set take source";
                 logToConsole("ReaSpeechLite: " + errorMessage);
+                return;
             }
+
+            // Set source offset (start time within the audio file)
+            if (startTime > 0.0)
+            {
+                rpr.GetSetMediaItemInfo (item, "D_SNAPOFFSET", startTime);
+                logToConsole("ReaSpeechLite: Set source offset to " + juce::String(startTime));
+            }
+
+            logToConsole("ReaSpeechLite: Audio item inserted successfully");
         });
 
         if (errorMessage.isNotEmpty())
