@@ -30,7 +30,6 @@ struct ReaperProxy
         hasCountSelectedTracks = reaperHost->getReaperApi("CountSelectedTracks");
         hasGetActiveTake = reaperHost->getReaperApi("GetActiveTake");
         hasGetCursorPositionEx = reaperHost->getReaperApi("GetCursorPositionEx");
-        hasGetItemStateChunk = reaperHost->getReaperApi("GetItemStateChunk");
         hasGetLastTouchedTrack = reaperHost->getReaperApi("GetLastTouchedTrack");
         hasGetMediaItem = reaperHost->getReaperApi("GetMediaItem");
         hasGetMediaItemTake_Source = reaperHost->getReaperApi("GetMediaItemTake_Source");
@@ -38,17 +37,14 @@ struct ReaperProxy
         hasGetSelectedMediaItem = reaperHost->getReaperApi("GetSelectedMediaItem");
         hasGetSelectedTrack = reaperHost->getReaperApi("GetSelectedTrack");
         hasGetSetMediaItemInfo = reaperHost->getReaperApi("GetSetMediaItemInfo");
-        hasGetSetMediaItemTakeInfo_String = reaperHost->getReaperApi("GetSetMediaItemTakeInfo_String");
         hasGetSetMediaTrackInfo_String = reaperHost->getReaperApi("GetSetMediaTrackInfo_String");
         hasGetTrack = reaperHost->getReaperApi("GetTrack");
-        hasInsertMedia = reaperHost->getReaperApi("InsertMedia");
         hasInsertTrackInProject = reaperHost->getReaperApi("InsertTrackInProject");
         hasMain_OnCommandEx = reaperHost->getReaperApi("Main_OnCommandEx");
         hasPCM_Source_CreateFromFile = reaperHost->getReaperApi("PCM_Source_CreateFromFile");
         hasPreventUIRefresh = reaperHost->getReaperApi("PreventUIRefresh");
         hasSelectAllMediaItems = reaperHost->getReaperApi("SelectAllMediaItems");
         hasSetEditCurPos2 = reaperHost->getReaperApi("SetEditCurPos2");
-        hasSetItemStateChunk = reaperHost->getReaperApi("SetItemStateChunk");
         hasSetMediaItemLength = reaperHost->getReaperApi("SetMediaItemLength");
         hasSetMediaItemPosition = reaperHost->getReaperApi("SetMediaItemPosition");
         hasSetMediaItemTake_Source = reaperHost->getReaperApi("SetMediaItemTake_Source");
@@ -115,12 +111,6 @@ struct ReaperProxy
         REAPER_CALL(GetCursorPositionEx, double (*) (ReaProject*), proj)
     }
 
-    void* hasGetItemStateChunk = nullptr;
-    bool GetItemStateChunk (MediaItem* item, char* strNeedBig, int strNeedBig_sz, bool isundoOptional)
-    {
-        REAPER_CALL(GetItemStateChunk, bool (*) (MediaItem*, char*, int, bool), item, strNeedBig, strNeedBig_sz, isundoOptional)
-    }
-
     void* hasGetLastTouchedTrack = nullptr;
     MediaTrack* GetLastTouchedTrack ()
     {
@@ -165,12 +155,6 @@ struct ReaperProxy
         REAPER_CALL(GetSetMediaItemInfo, double (*) (MediaItem*, const char*, double), item, parmname, setNewValue)
     }
 
-    void* hasGetSetMediaItemTakeInfo_String = nullptr;
-    bool GetSetMediaItemTakeInfo_String (MediaTake* take, const char* parmname, char* stringNeedBig, bool setNewValue)
-    {
-        REAPER_CALL(GetSetMediaItemTakeInfo_String, bool (*) (MediaTake*, const char*, char*, bool), take, parmname, stringNeedBig, setNewValue)
-    }
-
     void* hasGetSetMediaTrackInfo_String = nullptr;
     bool GetSetMediaTrackInfo_String (MediaTrack* tr, const char* parmname, char* stringNeedBig, bool setNewValue)
     {
@@ -181,12 +165,6 @@ struct ReaperProxy
     MediaTrack* GetTrack (ReaProject* proj, int trackidx)
     {
         REAPER_CALL(GetTrack, MediaTrack* (*) (ReaProject*, int), proj, trackidx)
-    }
-
-    void* hasInsertMedia = nullptr;
-    void InsertMedia (const char* file, int mode)
-    {
-        REAPER_CALL(InsertMedia, void (*) (const char*, int), file, mode)
     }
 
     void* hasInsertTrackInProject = nullptr;
@@ -223,12 +201,6 @@ struct ReaperProxy
     void SetEditCurPos2 (ReaProject* proj, double time, bool moveview, bool seekplay)
     {
         REAPER_CALL(SetEditCurPos2, void (*) (ReaProject*, double, bool, bool), proj, time, moveview, seekplay)
-    }
-
-    void* hasSetItemStateChunk = nullptr;
-    bool SetItemStateChunk (MediaItem* item, const char* str, bool isundoOptional)
-    {
-        REAPER_CALL(SetItemStateChunk, bool (*) (MediaItem*, const char*, bool), item, str, isundoOptional)
     }
 
     void* hasSetMediaItemLength = nullptr;
