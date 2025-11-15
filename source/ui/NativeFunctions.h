@@ -579,9 +579,9 @@ public:
             }
 
             // Set take start offset (D_STARTOFFS) - where in the source media playback starts
-            if (rpr.hasGetSetMediaItemTakeInfo_Value)
+            if (rpr.hasSetMediaItemTakeInfo_Value)
             {
-                rpr.GetSetMediaItemTakeInfo_Value (take, "D_STARTOFFS", startTime);
+                rpr.SetMediaItemTakeInfo_Value (take, "D_STARTOFFS", startTime);
             }
         });
 
