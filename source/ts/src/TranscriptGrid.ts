@@ -210,7 +210,7 @@ export default class TranscriptGrid {
     // Import Native dynamically to avoid circular dependencies
     import('./Native').then(module => {
       const native = new module.default();
-      native.insertAudioAtCursor(filePath, start, end).then((result: any) => {
+      native.insertAudioAtCursor(start, end, filePath).then((result: any) => {
         if (result && result.error) {
           this.onError(result.error);
         }

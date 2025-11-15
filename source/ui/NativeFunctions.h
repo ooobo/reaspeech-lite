@@ -128,49 +128,17 @@ public:
         if (auto* document = getDocument())
         {
             juce::Array<juce::var> audioSources;
-            for (const auto& as : document->getAudioSources())
+            for (const auto& as : document->getAudioSources<ReaSpeechLiteAudioSource>())
             {
                 juce::DynamicObject::Ptr audioSource = new juce::DynamicObject();
-                juce::String audioSourceName = SafeUTF8::encode (as->getName());
-                audioSource->setProperty ("name", audioSourceName);
+                audioSource->setProperty ("name", SafeUTF8::encode (as->getName()));
                 audioSource->setProperty ("persistentID", juce::String (as->getPersistentID()));
                 audioSource->setProperty ("sampleRate", as->getSampleRate());
                 audioSource->setProperty ("sampleCount", (juce::int64) as->getSampleCount());
                 audioSource->setProperty ("duration", as->getDuration());
                 audioSource->setProperty ("channelCount", as->getChannelCount());
                 audioSource->setProperty ("merits64BitSamples", as->merits64BitSamples());
-
-                // Find the full file path by searching through existing media items
-                juce::String audioFilePath;
-                if (rpr.hasCountMediaItems && rpr.hasGetMediaItem && rpr.hasGetActiveTake &&
-                    rpr.hasGetMediaItemTake_Source && rpr.hasGetMediaSourceFileName)
-                {
-                    int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
-                    for (int i = 0; i < numItems; ++i)
-                    {
-                        auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
-                        auto* take = rpr.GetActiveTake (item);
-                        if (take != nullptr)
-                        {
-                            auto* source = rpr.GetMediaItemTake_Source (take);
-                            if (source != nullptr)
-                            {
-                                char filenamebuf[4096];
-                                rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
-                                juce::String filename (filenamebuf);
-                                if (filename.isNotEmpty() &&
-                                    (filename.contains(audioSourceName) ||
-                                     audioSourceName.contains(juce::File(filename).getFileNameWithoutExtension())))
-                                {
-                                    audioFilePath = filename;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                audioSource->setProperty ("filePath", audioFilePath);
+                audioSource->setProperty ("filePath", as->getFilePath());
                 audioSources.add (audioSource.get());
             }
             complete (juce::var (audioSources));
@@ -453,6 +421,44 @@ public:
         const auto audioSourcePersistentID = args[0].toString();
         if (auto* audioSource = getAudioSourceByPersistentID (audioSourcePersistentID))
         {
+            auto* rsAudioSource = dynamic_cast<ReaSpeechLiteAudioSource*>(audioSource);
+            if (rsAudioSource && rsAudioSource->getFilePath().isEmpty())
+            {
+                juce::String audioSourceName = SafeUTF8::encode (audioSource->getName());
+                juce::String audioFilePath;
+
+                if (rpr.hasCountMediaItems && rpr.hasGetMediaItem && rpr.hasGetActiveTake &&
+                    rpr.hasGetMediaItemTake_Source && rpr.hasGetMediaSourceFileName)
+                {
+                    int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
+                    for (int i = 0; i < numItems; ++i)
+                    {
+                        auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
+                        auto* take = rpr.GetActiveTake (item);
+                        if (take != nullptr)
+                        {
+                            auto* source = rpr.GetMediaItemTake_Source (take);
+                            if (source != nullptr)
+                            {
+                                char filenamebuf[4096];
+                                rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
+                                juce::String filename (filenamebuf);
+                                juce::String filenameWithoutExt = juce::File(filename).getFileNameWithoutExtension();
+                                juce::String audioSourceNameWithoutExt = audioSourceName.upToLastOccurrenceOf(".", false, false);
+
+                                if (filename.isNotEmpty() && filenameWithoutExt == audioSourceNameWithoutExt)
+                                {
+                                    audioFilePath = filename;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                rsAudioSource->setFilePath (audioFilePath);
+            }
+
             auto* job = new ASRThreadPoolJob (
                 *asrEngine,
                 audioSource,
@@ -482,15 +488,15 @@ public:
 
     void insertAudioAtCursor (const juce::var& args, std::function<void (const juce::var&)> complete)
     {
-        if (!args.isArray() || args.size() < 3 || !args[0].isString())
+        if (!args.isArray() || args.size() < 3 || !args[2].isString())
         {
             complete (makeError ("Invalid arguments"));
             return;
         }
 
-        const auto audioFilePath = args[0].toString();
-        const double startTime = args[1];
-        const double endTime = args[2];
+        const double startTime = args[0];
+        const double endTime = args[1];
+        const auto audioFilePath = args[2].toString();
         const double itemLength = endTime - startTime;
 
         if (audioFilePath.isEmpty())

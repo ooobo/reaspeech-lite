@@ -68,7 +68,8 @@ describe('TranscriptGrid', () => {
           score: 0.95,
           source: 'Test Audio',
           sourceID: 'test123',
-          filePath: '/path/to/Test Audio.wav'
+          filePath: '/path/to/Test Audio.wav',
+          
         },
         {
           id: 'test123-1',
@@ -80,7 +81,8 @@ describe('TranscriptGrid', () => {
           score: 0.85,
           source: 'Test Audio',
           sourceID: 'test123',
-          filePath: '/path/to/Test Audio.wav'
+          filePath: '/path/to/Test Audio.wav',
+          
         }
       ]
     });
@@ -221,7 +223,8 @@ describe('TranscriptGrid', () => {
         playbackEnd: 0,
         text: '',
         score: 0,
-        filePath: '/path/to/Test Audio.wav'
+        filePath: '/path/to/Test Audio.wav',
+        
       }
     })).toBe('test123-0');
   });
@@ -475,7 +478,8 @@ describe('TranscriptGrid', () => {
       score: 0.95,
       source: 'Test Audio',
       sourceID: 'test123',
-      filePath: '/path/to/Test Audio.wav'
+      filePath: '/path/to/Test Audio.wav',
+      
     };
     const row2 = {
       id: 'test123-1',
@@ -485,7 +489,8 @@ describe('TranscriptGrid', () => {
       score: 0.85,
       source: 'Test Audio',
       sourceID: 'test123',
-      filePath: '/path/to/Test Audio.wav'
+      filePath: '/path/to/Test Audio.wav',
+      
     };
     grid.addRows([row1, row2]);
 
@@ -516,7 +521,8 @@ describe('TranscriptGrid', () => {
       score: 0.95,
       source: 'Test Audio',
       sourceID: 'test123',
-      filePath: '/path/to/Test Audio.wav'
+      filePath: '/path/to/Test Audio.wav',
+      
     };
     const row2 = {
       id: 'test123-1',
@@ -528,7 +534,8 @@ describe('TranscriptGrid', () => {
       score: 0.85,
       source: 'Test Audio',
       sourceID: 'test123',
-      filePath: '/path/to/Test Audio.wav'
+      filePath: '/path/to/Test Audio.wav',
+      
     };
     grid.addRows([row1, row2]);
 
@@ -586,7 +593,8 @@ describe('TranscriptGrid', () => {
       score: 0.95,
       source: 'Test Audio',
       sourceID: 'test123',
-      filePath: '/path/to/Test Audio.wav'
+      filePath: '/path/to/Test Audio.wav',
+      
     };
     const index = 0;
     const result = grid.processRowForSRT(row, index);
