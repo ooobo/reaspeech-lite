@@ -37,7 +37,6 @@ struct ReaperProxy
         hasGetMediaSourceFileName = reaperHost->getReaperApi("GetMediaSourceFileName");
         hasGetSelectedMediaItem = reaperHost->getReaperApi("GetSelectedMediaItem");
         hasGetSelectedTrack = reaperHost->getReaperApi("GetSelectedTrack");
-        hasGetSetMediaItemInfo = reaperHost->getReaperApi("GetSetMediaItemInfo");
         hasSetMediaItemTakeInfo_Value = reaperHost->getReaperApi("SetMediaItemTakeInfo_Value");
         hasGetSetMediaTrackInfo_String = reaperHost->getReaperApi("GetSetMediaTrackInfo_String");
         hasGetTrack = reaperHost->getReaperApi("GetTrack");
@@ -156,12 +155,6 @@ struct ReaperProxy
     MediaTrack* GetSelectedTrack (ReaProject* proj, int seltrackidx)
     {
         REAPER_CALL(GetSelectedTrack, MediaTrack* (*) (ReaProject*, int), proj, seltrackidx)
-    }
-
-    void* hasGetSetMediaItemInfo = nullptr;
-    double GetSetMediaItemInfo (MediaItem* item, const char* parmname, double setNewValue)
-    {
-        REAPER_CALL(GetSetMediaItemInfo, double (*) (MediaItem*, const char*, double), item, parmname, setNewValue)
     }
 
     void* hasSetMediaItemTakeInfo_Value = nullptr;
