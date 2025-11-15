@@ -140,12 +140,34 @@ public:
                 audioSource->setProperty ("channelCount", as->getChannelCount());
                 audioSource->setProperty ("merits64BitSamples", as->merits64BitSamples());
 
-                // Try using the audio source name as the file path
+                // Find the full file path by searching through existing media items
                 juce::String audioFilePath;
-                juce::File sourceFile (audioSourceName);
-                if (sourceFile.existsAsFile())
+                if (rpr.hasCountMediaItems && rpr.hasGetMediaItem && rpr.hasGetActiveTake &&
+                    rpr.hasGetMediaItemTake_Source && rpr.hasGetMediaSourceFileName)
                 {
-                    audioFilePath = sourceFile.getFullPathName();
+                    int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
+                    for (int i = 0; i < numItems; ++i)
+                    {
+                        auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
+                        auto* take = rpr.GetActiveTake (item);
+                        if (take != nullptr)
+                        {
+                            auto* source = rpr.GetMediaItemTake_Source (take);
+                            if (source != nullptr)
+                            {
+                                char filenamebuf[4096];
+                                rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
+                                juce::String filename (filenamebuf);
+                                if (filename.isNotEmpty() &&
+                                    (filename.contains(audioSourceName) ||
+                                     audioSourceName.contains(juce::File(filename).getFileNameWithoutExtension())))
+                                {
+                                    audioFilePath = filename;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 audioSource->setProperty ("filePath", audioFilePath);
