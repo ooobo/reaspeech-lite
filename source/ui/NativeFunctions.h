@@ -578,8 +578,30 @@ public:
                 return;
             }
 
-            // TODO: Set source start offset
-            // For now, items will play from the beginning of the file
+            // Set the take start offset by modifying the state chunk
+            if (startTime > 0.0)
+            {
+                char buffer[16384];
+                if (rpr.GetItemStateChunk (item, buffer, sizeof(buffer), false))
+                {
+                    juce::String chunk (buffer);
+
+                    // Find and update SOFFS (Source Offset) field in the chunk
+                    int soffsPos = chunk.indexOf ("SOFFS ");
+                    if (soffsPos >= 0)
+                    {
+                        // Find end of SOFFS line
+                        int soffsEnd = chunk.indexOfChar (soffsPos, '\n');
+                        if (soffsEnd >= 0)
+                        {
+                            // Replace the SOFFS line with the new value
+                            juce::String newSoffs = "SOFFS " + juce::String(startTime, 6);
+                            chunk = chunk.substring (0, soffsPos) + newSoffs + chunk.substring (soffsEnd);
+                            rpr.SetItemStateChunk (item, chunk.toRawUTF8(), false);
+                        }
+                    }
+                }
+            }
         });
 
         if (errorMessage.isNotEmpty())
