@@ -140,40 +140,12 @@ public:
                 audioSource->setProperty ("channelCount", as->getChannelCount());
                 audioSource->setProperty ("merits64BitSamples", as->merits64BitSamples());
 
-                // Find the full file path by searching through existing media items
+                // Try using the audio source name as the file path
                 juce::String audioFilePath;
-                int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
-                for (int i = 0; i < numItems; ++i)
+                juce::File sourceFile (audioSourceName);
+                if (sourceFile.existsAsFile())
                 {
-                    auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
-                    auto* take = rpr.GetActiveTake (item);
-                    if (take != nullptr && rpr.hasGetMediaItemTake_Source && rpr.hasGetMediaSourceFileName)
-                    {
-                        auto* source = rpr.GetMediaItemTake_Source (take);
-                        if (source != nullptr)
-                        {
-                            char filenamebuf[4096];
-                            rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
-                            juce::String filename (filenamebuf);
-
-                            // Match by comparing the source name with the filename
-                            if (filename.isNotEmpty() && (filename.contains(audioSourceName) || audioSourceName.contains(juce::File(filename).getFileNameWithoutExtension())))
-                            {
-                                audioFilePath = filename;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // If we couldn't find from items, try using the name directly
-                if (audioFilePath.isEmpty())
-                {
-                    juce::File sourceFile (audioSourceName);
-                    if (sourceFile.existsAsFile())
-                    {
-                        audioFilePath = sourceFile.getFullPathName();
-                    }
+                    audioFilePath = sourceFile.getFullPathName();
                 }
 
                 audioSource->setProperty ("filePath", audioFilePath);
@@ -488,7 +460,6 @@ public:
 
     void insertAudioAtCursor (const juce::var& args, std::function<void (const juce::var&)> complete)
     {
-        // Validate arguments: filePath, startTime, endTime
         if (!args.isArray() || args.size() < 3 || !args[0].isString())
         {
             complete (makeError ("Invalid arguments"));
@@ -500,7 +471,6 @@ public:
         const double endTime = args[2];
         const double itemLength = endTime - startTime;
 
-        // Verify the file exists
         if (audioFilePath.isEmpty())
         {
             complete (makeError ("Audio file path is empty"));
@@ -514,22 +484,16 @@ public:
             return;
         }
 
-        // Get selected track or last touched track
         ReaperProxy::MediaTrack* track = nullptr;
-
         if (rpr.hasCountSelectedTracks && rpr.hasGetSelectedTrack)
         {
             int numSelectedTracks = rpr.CountSelectedTracks (ReaperProxy::activeProject);
             if (numSelectedTracks > 0)
-            {
                 track = rpr.GetSelectedTrack (ReaperProxy::activeProject, 0);
-            }
         }
 
         if (track == nullptr && rpr.hasGetLastTouchedTrack)
-        {
             track = rpr.GetLastTouchedTrack();
-        }
 
         if (track == nullptr)
         {
@@ -537,62 +501,29 @@ public:
             return;
         }
 
-        // Get cursor position
         const auto cursorPos = rpr.GetCursorPositionEx (ReaperProxy::activeProject);
 
-        // Create media item and insert audio
-        juce::String errorMessage;
         withReaperUndo ("Insert audio segment", [&] {
-            // Create new media item on the track
-            auto* item = rpr.AddMediaItemToTrack (track);
-            if (item == nullptr)
+            try
             {
-                errorMessage = "Failed to create media item";
-                return;
+                auto* item = rpr.AddMediaItemToTrack (track);
+                rpr.SetMediaItemPosition (item, cursorPos, true);
+                rpr.SetMediaItemLength (item, itemLength, true);
+
+                auto* take = rpr.AddTakeToMediaItem (item);
+                auto* pcmSource = rpr.PCM_Source_CreateFromFile (audioFilePath.toRawUTF8());
+                rpr.SetMediaItemTake_Source (take, pcmSource);
+
+                if (rpr.hasSetMediaItemTakeInfo_Value)
+                    rpr.SetMediaItemTakeInfo_Value (take, "D_STARTOFFS", startTime);
             }
-
-            // Set item position and length
-            rpr.SetMediaItemPosition (item, cursorPos, true);
-            rpr.SetMediaItemLength (item, itemLength, true);
-
-            // Add take to item
-            auto* take = rpr.AddTakeToMediaItem (item);
-            if (take == nullptr)
+            catch (const ReaperProxy::Missing& e)
             {
-                errorMessage = "Failed to add take to item";
-                return;
-            }
-
-            // Create PCM source from audio file
-            auto* pcmSource = rpr.PCM_Source_CreateFromFile (audioFilePath.toRawUTF8());
-            if (pcmSource == nullptr)
-            {
-                errorMessage = "Failed to create PCM source from file: " + audioFilePath;
-                return;
-            }
-
-            // Set the source on the take
-            if (!rpr.SetMediaItemTake_Source (take, pcmSource))
-            {
-                errorMessage = "Failed to set take source";
-                return;
-            }
-
-            // Set take start offset (D_STARTOFFS) - where in the source media playback starts
-            if (rpr.hasSetMediaItemTakeInfo_Value)
-            {
-                rpr.SetMediaItemTakeInfo_Value (take, "D_STARTOFFS", startTime);
+                DBG ("Missing REAPER API function: " + juce::String (e.what()));
             }
         });
 
-        if (errorMessage.isNotEmpty())
-        {
-            complete (makeError (errorMessage));
-        }
-        else
-        {
-            complete (juce::var());
-        }
+        complete (juce::var());
     }
 
     void setDebugMode (const juce::var& args, std::function<void (const juce::var&)> complete)
