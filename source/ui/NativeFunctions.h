@@ -493,6 +493,10 @@ public:
                         segments.add (segment.toDynamicObject(false).get());
                     obj->setProperty ("segments", segments);
                     complete (juce::var (obj.get()));
+                }
+            };
+
+            // Look up file path if needed (for REAPER integration)
             auto* rsAudioSource = dynamic_cast<ReaSpeechLiteAudioSource*>(audioSource);
             if (rsAudioSource && rsAudioSource->getFilePath().isEmpty())
             {
@@ -530,28 +534,6 @@ public:
 
                 rsAudioSource->setFilePath (audioFilePath);
             }
-
-            auto* job = new ASRThreadPoolJob (
-                *asrEngine,
-                audioSource,
-                std::move(options),
-                [this] (ASRThreadPoolJobStatus status) {
-                    asrStatus = status;
-                },
-                [this, complete] (const ASRThreadPoolJobResult& result) {
-                    if (result.isError)
-                        complete (makeError (result.errorMessage));
-                    else
-                    {
-                        juce::DynamicObject::Ptr obj = new juce::DynamicObject();
-                        juce::Array<juce::var> segments;
-                        for (const auto& segment : result.segments)
-                            segments.add (segment.toDynamicObject(false).get());
-                        obj->setProperty ("segments", segments);
-                        complete (juce::var (obj.get()));
-                    }
-                }
-            };
 
             if (useParakeet)
             {
@@ -648,23 +630,6 @@ public:
         });
 
         complete (juce::var());
-    }
-
-    void setDebugMode (const juce::var& args, std::function<void (const juce::var&)> complete)
-    {
-        if (!args.isBool())
-        {
-            complete (makeError ("Invalid arguments"));
-            return;
-        }
-
-        debugMode.store (args);
-        complete (juce::var());
-    }
-
-    void getProcessingTime (const juce::var&, std::function<void (const juce::var&)> complete)
-    {
-        complete (juce::var (asrEngine->getProcessingTime()));
     }
 
 private:
