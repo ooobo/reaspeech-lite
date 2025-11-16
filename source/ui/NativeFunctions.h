@@ -110,6 +110,8 @@ public:
             {
                 if (markerType == MarkerType::notes)
                     addReaperNotesTrack (markers);
+                else if (markerType == MarkerType::takemarkers)
+                    addReaperTakeMarkers (markers);
                 else
                     addReaperMarkers (markers, markerType);
             }
@@ -540,6 +542,66 @@ private:
         }
 
         rpr.SetEditCurPos2 (ReaperProxy::activeProject, originalPosition, true, true);
+    }
+
+    void addReaperTakeMarkers (const juce::Array<juce::var>* markers)
+    {
+        // Get the last touched track to find relevant media items
+        auto* track = rpr.GetLastTouchedTrack();
+        if (track == nullptr)
+        {
+            DBG ("No track selected or touched");
+            return;
+        }
+
+        // Get all media items in the project
+        int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
+
+        for (const auto& markerVar : *markers)
+        {
+            const auto marker = markerVar.getDynamicObject();
+            double sourcePos = marker->getProperty ("start");
+            const auto name = marker->getProperty ("name");
+            const auto sourceID = marker->getProperty ("sourceID").toString();
+
+            // Find the media item with the matching audio source
+            for (int i = 0; i < numItems; ++i)
+            {
+                auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
+
+                // Check if item is on the touched track
+                double itemTrackNum = rpr.GetMediaItemInfo_Value (item, "P_TRACK");
+                if (reinterpret_cast<ReaperProxy::MediaTrack*> (static_cast<intptr_t> (itemTrackNum)) != track)
+                    continue;
+
+                // Get the active take from the item
+                auto* take = rpr.GetActiveTake (item);
+                if (take == nullptr)
+                    continue;
+
+                // Get the take's source
+                auto* source = rpr.GetMediaItemTake_Source (take);
+                if (source == nullptr)
+                    continue;
+
+                // Get the source filename
+                char filenamebuf[4096];
+                rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
+                juce::String filename (filenamebuf);
+
+                // Match by audio source ID (contained in filename)
+                if (filename.contains (sourceID))
+                {
+                    // Add take marker: idx -1 means insert new marker
+                    int result = rpr.SetTakeMarker (take, -1, name.toString().toRawUTF8(), &sourcePos, nullptr);
+                    if (result >= 0)
+                    {
+                        DBG ("Added take marker: " + name.toString() + " at " + juce::String (sourcePos));
+                    }
+                    break; // Move to next marker after finding matching item
+                }
+            }
+        }
     }
 
     ReaperProxy::MediaItem* createEmptyReaperItem (const double start, const double end)

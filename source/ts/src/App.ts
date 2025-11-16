@@ -106,6 +106,7 @@ export default class App {
     document.getElementById('create-markers').onclick = () => { this.handleCreateMarkers('markers'); };
     document.getElementById('create-regions').onclick = () => { this.handleCreateMarkers('regions'); };
     document.getElementById('create-notes').onclick = () => { this.handleCreateMarkers('notes'); };
+    document.getElementById('create-take-markers').onclick = () => { this.handleCreateMarkers('take-markers'); };
   }
 
   initExportButton() {
