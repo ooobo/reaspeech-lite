@@ -24,7 +24,8 @@ function makeAudioSource(name: string, persistentID: string): AudioSource {
     sampleCount: 441000,
     duration: 10,
     channelCount: 2,
-    merits64BitSamples: false
+    merits64BitSamples: false,
+    filePath: '/path/to/' + name + '.wav'
   };
 }
 
@@ -55,6 +56,7 @@ describe('AudioSourceGrid', () => {
         {
           "channelCount": 2,
           "duration": 10,
+          "filePath": "/path/to/Test Audio 1.wav",
           "merits64BitSamples": false,
           "name": "Test Audio 1",
           "persistentID": "audio1",
@@ -64,6 +66,7 @@ describe('AudioSourceGrid', () => {
         {
           "channelCount": 2,
           "duration": 10,
+          "filePath": "/path/to/Test Audio 2.wav",
           "merits64BitSamples": false,
           "name": "Test Audio 2",
           "persistentID": "audio2",

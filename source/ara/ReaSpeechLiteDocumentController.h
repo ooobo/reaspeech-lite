@@ -52,27 +52,26 @@ protected:
 
     bool doRestoreObjectsFromStream (juce::ARAInputStream& input, const juce::ARARestoreObjectsFilter* filter) noexcept override
     {
-        // Start reading data from the archive, starting with the number of audio sources in the archive
         const auto numAudioSources = input.readInt64();
 
-        // Loop over stored audio source data
         for (juce::int64 i = 0; i < numAudioSources; ++i)
         {
             auto audioSourceID = input.readString();
             auto transcriptJSON = input.readString();
+            auto filePath = input.readString();
 
             auto audioSource = filter->getAudioSourceToRestoreStateWithID<ReaSpeechLiteAudioSource> (audioSourceID.getCharPointer());
 
             if (audioSource == nullptr)
                 continue;
 
-            // Parse JSON string back to juce::var
             juce::var transcript;
             auto result = juce::JSON::parse (transcriptJSON, transcript);
 
             if (result.wasOk())
             {
                 audioSource->setTranscript (transcript);
+                audioSource->setFilePath (filePath);
             }
             else
             {
@@ -87,23 +86,21 @@ protected:
     bool doStoreObjectsToStream (juce::ARAOutputStream& output, const juce::ARAStoreObjectsFilter* filter) noexcept override
     {
         const auto& audioSourcesToPersist { filter->getAudioSourcesToStore<ReaSpeechLiteAudioSource>() };
-
-        // Write the number of audio sources we are persisting
         const auto numAudioSources = audioSourcesToPersist.size();
 
         if (! output.writeInt64 ((juce::int64) numAudioSources))
             return false;
 
-        // For each audio source to persist, persist its ID followed by its transcript
         for (size_t i = 0; i < numAudioSources; ++i)
         {
-            // Write audio source ID and transcript as JSON
             if (! output.writeString (audioSourcesToPersist[i]->getPersistentID()))
                 return false;
 
-            // Convert juce::var to JSON string for storage
             juce::String transcriptJSON = juce::JSON::toString (audioSourcesToPersist[i]->getTranscript());
             if (! output.writeString (transcriptJSON))
+                return false;
+
+            if (! output.writeString (audioSourcesToPersist[i]->getFilePath()))
                 return false;
         }
 
