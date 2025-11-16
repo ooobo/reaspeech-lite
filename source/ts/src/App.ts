@@ -106,6 +106,7 @@ export default class App {
     document.getElementById('create-markers').onclick = () => { this.handleCreateMarkers('markers'); };
     document.getElementById('create-regions').onclick = () => { this.handleCreateMarkers('regions'); };
     document.getElementById('create-notes').onclick = () => { this.handleCreateMarkers('notes'); };
+    document.getElementById('create-take-markers').onclick = () => { this.handleCreateMarkers('take-markers'); };
   }
 
   initExportButton() {
@@ -224,7 +225,11 @@ export default class App {
   }
 
   initTranscript() {
-    this.transcriptGrid = new TranscriptGrid('#transcript-grid', (seconds) => this.playAt(seconds));
+    this.transcriptGrid = new TranscriptGrid(
+      '#transcript-grid',
+      (seconds) => this.playAt(seconds),
+      (message) => this.showAlert('danger', message)
+    );
     return this.native.getAudioSources().then((audioSources: AudioSource[]) => {
       const promises = audioSources.map((audioSource) => {
         return this.mergeTranscript(audioSource);

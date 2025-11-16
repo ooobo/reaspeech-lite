@@ -60,6 +60,7 @@ public:
             .withNativeFunction ("getRegionSequences", bindFn (&NativeFunctions::getRegionSequences))
             .withNativeFunction ("getTranscriptionStatus", bindFn (&NativeFunctions::getTranscriptionStatus))
             .withNativeFunction ("getWhisperLanguages", bindFn (&NativeFunctions::getWhisperLanguages))
+            .withNativeFunction ("insertAudioAtCursor", bindFn (&NativeFunctions::insertAudioAtCursor))
             .withNativeFunction ("play", bindFn (&NativeFunctions::play))
             .withNativeFunction ("stop", bindFn (&NativeFunctions::stop))
             .withNativeFunction ("saveFile", bindFn (&NativeFunctions::saveFile))
@@ -114,6 +115,8 @@ public:
             {
                 if (markerType == MarkerType::notes)
                     addReaperNotesTrack (markers);
+                else if (markerType == MarkerType::takemarkers)
+                    addReaperTakeMarkers (markers);
                 else
                     addReaperMarkers (markers, markerType);
             }
@@ -131,7 +134,7 @@ public:
         if (auto* document = getDocument())
         {
             juce::Array<juce::var> audioSources;
-            for (const auto& as : document->getAudioSources())
+            for (const auto& as : document->getAudioSources<ReaSpeechLiteAudioSource>())
             {
                 juce::DynamicObject::Ptr audioSource = new juce::DynamicObject();
                 audioSource->setProperty ("name", SafeUTF8::encode (as->getName()));
@@ -141,6 +144,7 @@ public:
                 audioSource->setProperty ("duration", as->getDuration());
                 audioSource->setProperty ("channelCount", as->getChannelCount());
                 audioSource->setProperty ("merits64BitSamples", as->merits64BitSamples());
+                audioSource->setProperty ("filePath", as->getFilePath());
                 audioSources.add (audioSource.get());
             }
             complete (juce::var (audioSources));
@@ -489,6 +493,63 @@ public:
                         segments.add (segment.toDynamicObject(false).get());
                     obj->setProperty ("segments", segments);
                     complete (juce::var (obj.get()));
+            auto* rsAudioSource = dynamic_cast<ReaSpeechLiteAudioSource*>(audioSource);
+            if (rsAudioSource && rsAudioSource->getFilePath().isEmpty())
+            {
+                juce::String audioSourceName = SafeUTF8::encode (audioSource->getName());
+                juce::String audioFilePath;
+
+                if (rpr.hasCountMediaItems && rpr.hasGetMediaItem && rpr.hasGetActiveTake &&
+                    rpr.hasGetMediaItemTake_Source && rpr.hasGetMediaSourceFileName)
+                {
+                    int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
+                    for (int i = 0; i < numItems; ++i)
+                    {
+                        auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
+                        auto* take = rpr.GetActiveTake (item);
+                        if (take != nullptr)
+                        {
+                            auto* source = rpr.GetMediaItemTake_Source (take);
+                            if (source != nullptr)
+                            {
+                                char filenamebuf[4096];
+                                rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
+                                juce::String filename (filenamebuf);
+                                juce::String filenameWithoutExt = juce::File(filename).getFileNameWithoutExtension();
+                                juce::String audioSourceNameWithoutExt = audioSourceName.upToLastOccurrenceOf(".", false, false);
+
+                                if (filename.isNotEmpty() && filenameWithoutExt == audioSourceNameWithoutExt)
+                                {
+                                    audioFilePath = filename;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                rsAudioSource->setFilePath (audioFilePath);
+            }
+
+            auto* job = new ASRThreadPoolJob (
+                *asrEngine,
+                audioSource,
+                std::move(options),
+                [this] (ASRThreadPoolJobStatus status) {
+                    asrStatus = status;
+                },
+                [this, complete] (const ASRThreadPoolJobResult& result) {
+                    if (result.isError)
+                        complete (makeError (result.errorMessage));
+                    else
+                    {
+                        juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+                        juce::Array<juce::var> segments;
+                        for (const auto& segment : result.segments)
+                            segments.add (segment.toDynamicObject(false).get());
+                        obj->setProperty ("segments", segments);
+                        complete (juce::var (obj.get()));
+                    }
                 }
             };
 
@@ -519,6 +580,91 @@ public:
             return;
         }
         complete (makeError ("Audio source not found"));
+    }
+
+    void insertAudioAtCursor (const juce::var& args, std::function<void (const juce::var&)> complete)
+    {
+        if (!args.isArray() || args.size() < 3 || !args[2].isString())
+        {
+            complete (makeError ("Invalid arguments"));
+            return;
+        }
+
+        const double startTime = args[0];
+        const double endTime = args[1];
+        const auto audioFilePath = args[2].toString();
+        const double itemLength = endTime - startTime;
+
+        if (audioFilePath.isEmpty())
+        {
+            complete (makeError ("Audio file path is empty"));
+            return;
+        }
+
+        juce::File sourceFile (audioFilePath);
+        if (!sourceFile.existsAsFile())
+        {
+            complete (makeError ("Audio file not found: " + audioFilePath));
+            return;
+        }
+
+        ReaperProxy::MediaTrack* track = nullptr;
+        if (rpr.hasCountSelectedTracks && rpr.hasGetSelectedTrack)
+        {
+            int numSelectedTracks = rpr.CountSelectedTracks (ReaperProxy::activeProject);
+            if (numSelectedTracks > 0)
+                track = rpr.GetSelectedTrack (ReaperProxy::activeProject, 0);
+        }
+
+        if (track == nullptr && rpr.hasGetLastTouchedTrack)
+            track = rpr.GetLastTouchedTrack();
+
+        if (track == nullptr)
+        {
+            complete (makeError ("No track selected or available"));
+            return;
+        }
+
+        const auto cursorPos = rpr.GetCursorPositionEx (ReaperProxy::activeProject);
+
+        withReaperUndo ("Insert audio segment", [&] {
+            try
+            {
+                auto* item = rpr.AddMediaItemToTrack (track);
+                rpr.SetMediaItemPosition (item, cursorPos, true);
+                rpr.SetMediaItemLength (item, itemLength, true);
+
+                auto* take = rpr.AddTakeToMediaItem (item);
+                auto* pcmSource = rpr.PCM_Source_CreateFromFile (audioFilePath.toRawUTF8());
+                rpr.SetMediaItemTake_Source (take, pcmSource);
+
+                if (rpr.hasSetMediaItemTakeInfo_Value)
+                    rpr.SetMediaItemTakeInfo_Value (take, "D_STARTOFFS", startTime);
+            }
+            catch (const ReaperProxy::Missing& e)
+            {
+                DBG ("Missing REAPER API function: " + juce::String (e.what()));
+            }
+        });
+
+        complete (juce::var());
+    }
+
+    void setDebugMode (const juce::var& args, std::function<void (const juce::var&)> complete)
+    {
+        if (!args.isBool())
+        {
+            complete (makeError ("Invalid arguments"));
+            return;
+        }
+
+        debugMode.store (args);
+        complete (juce::var());
+    }
+
+    void getProcessingTime (const juce::var&, std::function<void (const juce::var&)> complete)
+    {
+        complete (juce::var (asrEngine->getProcessingTime()));
     }
 
 private:
@@ -608,6 +754,66 @@ private:
         }
 
         rpr.SetEditCurPos2 (ReaperProxy::activeProject, originalPosition, true, true);
+    }
+
+    void addReaperTakeMarkers (const juce::Array<juce::var>* markers)
+    {
+        // Get the last touched track to find relevant media items
+        auto* track = rpr.GetLastTouchedTrack();
+        if (track == nullptr)
+        {
+            DBG ("No track selected or touched");
+            return;
+        }
+
+        // Get all media items in the project
+        int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
+
+        for (const auto& markerVar : *markers)
+        {
+            const auto marker = markerVar.getDynamicObject();
+            double sourcePos = marker->getProperty ("start");
+            const auto name = marker->getProperty ("name");
+            const auto sourceID = marker->getProperty ("sourceID").toString();
+
+            // Find the media item with the matching audio source
+            for (int i = 0; i < numItems; ++i)
+            {
+                auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
+
+                // Check if item is on the touched track
+                double itemTrackNum = rpr.GetMediaItemInfo_Value (item, "P_TRACK");
+                if (reinterpret_cast<ReaperProxy::MediaTrack*> (static_cast<intptr_t> (itemTrackNum)) != track)
+                    continue;
+
+                // Get the active take from the item
+                auto* take = rpr.GetActiveTake (item);
+                if (take == nullptr)
+                    continue;
+
+                // Get the take's source
+                auto* source = rpr.GetMediaItemTake_Source (take);
+                if (source == nullptr)
+                    continue;
+
+                // Get the source filename
+                char filenamebuf[4096];
+                rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
+                juce::String filename (filenamebuf);
+
+                // Match by audio source ID (contained in filename)
+                if (filename.contains (sourceID))
+                {
+                    // Add take marker: idx -1 means insert new marker
+                    int result = rpr.SetTakeMarker (take, -1, name.toString().toRawUTF8(), &sourcePos, nullptr);
+                    if (result >= 0)
+                    {
+                        DBG ("Added take marker: " + name.toString() + " at " + juce::String (sourcePos));
+                    }
+                    break; // Move to next marker after finding matching item
+                }
+            }
+        }
     }
 
     ReaperProxy::MediaItem* createEmptyReaperItem (const double start, const double end)

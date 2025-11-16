@@ -24,7 +24,8 @@ function makeAudioSource(name: string, persistentID: string): AudioSource {
     sampleCount: 441000,
     duration: 10,
     channelCount: 2,
-    merits64BitSamples: false
+    merits64BitSamples: false,
+    filePath: '/path/to/' + name + '.wav'
   };
 }
 
@@ -37,7 +38,8 @@ describe('TranscriptGrid', () => {
     mockElement = document.createElement('div');
     document.querySelector = jest.fn().mockReturnValue(mockElement);
     onPlayAt = jest.fn();
-    grid = new TranscriptGrid('#grid', onPlayAt);
+    const onError = jest.fn();
+    grid = new TranscriptGrid('#grid', onPlayAt, onError);
   });
 
   it('should initialize with correct selector and callback', () => {
@@ -65,7 +67,9 @@ describe('TranscriptGrid', () => {
           text: 'Hello',
           score: 0.95,
           source: 'Test Audio',
-          sourceID: 'test123'
+          sourceID: 'test123',
+          filePath: '/path/to/Test Audio.wav',
+          
         },
         {
           id: 'test123-1',
@@ -76,7 +80,9 @@ describe('TranscriptGrid', () => {
           text: 'World',
           score: 0.85,
           source: 'Test Audio',
-          sourceID: 'test123'
+          sourceID: 'test123',
+          filePath: '/path/to/Test Audio.wav',
+          
         }
       ]
     });
@@ -176,13 +182,15 @@ describe('TranscriptGrid', () => {
   it('should return correct column definitions', () => {
     const columnDefs = grid.getColumnDefs();
 
-    expect(columnDefs).toHaveLength(6);
+    expect(columnDefs).toHaveLength(7);
     expect(columnDefs[0].field).toBe('id');
     expect(columnDefs[1].field).toBe('playbackStart');
     expect(columnDefs[2].field).toBe('playbackEnd');
     expect(columnDefs[3].field).toBe('text');
     expect(columnDefs[4].field).toBe('score');
     expect(columnDefs[5].field).toBe('source');
+    expect(columnDefs[6].field).toBe('start');
+    expect(columnDefs[6].headerName).toBe('Raw Timecode');
   });
 
   it('should generate correct grid options', () => {
@@ -214,7 +222,9 @@ describe('TranscriptGrid', () => {
         playbackStart: 0,
         playbackEnd: 0,
         text: '',
-        score: 0
+        score: 0,
+        filePath: '/path/to/Test Audio.wav',
+        
       }
     })).toBe('test123-0');
   });
@@ -467,7 +477,9 @@ describe('TranscriptGrid', () => {
       text: 'Hello',
       score: 0.95,
       source: 'Test Audio',
-      sourceID: 'test123'
+      sourceID: 'test123',
+      filePath: '/path/to/Test Audio.wav',
+      
     };
     const row2 = {
       id: 'test123-1',
@@ -476,7 +488,9 @@ describe('TranscriptGrid', () => {
       text: 'World',
       score: 0.85,
       source: 'Test Audio',
-      sourceID: 'test123'
+      sourceID: 'test123',
+      filePath: '/path/to/Test Audio.wav',
+      
     };
     grid.addRows([row1, row2]);
 
@@ -506,7 +520,9 @@ describe('TranscriptGrid', () => {
       text: 'Hello',
       score: 0.95,
       source: 'Test Audio',
-      sourceID: 'test123'
+      sourceID: 'test123',
+      filePath: '/path/to/Test Audio.wav',
+      
     };
     const row2 = {
       id: 'test123-1',
@@ -517,7 +533,9 @@ describe('TranscriptGrid', () => {
       text: 'World',
       score: 0.85,
       source: 'Test Audio',
-      sourceID: 'test123'
+      sourceID: 'test123',
+      filePath: '/path/to/Test Audio.wav',
+      
     };
     grid.addRows([row1, row2]);
 
@@ -575,6 +593,8 @@ describe('TranscriptGrid', () => {
       score: 0.95,
       source: 'Test Audio',
       sourceID: 'test123',
+      filePath: '/path/to/Test Audio.wav',
+      
     };
     const index = 0;
     const result = grid.processRowForSRT(row, index);

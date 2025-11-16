@@ -33,6 +33,17 @@ public:
         }
     }
 
+    const juce::String& getFilePath() const noexcept
+    {
+        return filePath;
+    }
+
+    void setFilePath (const juce::String& newFilePath) noexcept
+    {
+        filePath = newFilePath;
+    }
+
 private:
     juce::var transcript;
+    juce::String filePath;
 };

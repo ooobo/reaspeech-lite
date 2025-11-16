@@ -20,16 +20,19 @@ interface TranscriptRow extends Segment {
   playbackEnd?: number;
   source: string;
   sourceID: string;
+  filePath: string;
 }
 
 export default class TranscriptGrid {
   private gridElement: HTMLElement;
   private gridApi: GridApi;
   private onPlayAt: (seconds: number) => void;
+  private onError: (message: string) => void;
   private rowData: TranscriptRow[] = [];
 
-  constructor(selector: string, onPlayAt: (seconds: number) => void) {
+  constructor(selector: string, onPlayAt: (seconds: number) => void, onError: (message: string) => void) {
     this.onPlayAt = onPlayAt;
+    this.onError = onError;
     this.gridElement = document.querySelector(selector) as HTMLElement;
     this.gridApi = createGrid(this.gridElement, this.getGridOptions());
   }
@@ -50,6 +53,7 @@ export default class TranscriptGrid {
       score: segment.score,
       source: audioSource.name,
       sourceID: audioSource.persistentID,
+      filePath: audioSource.filePath,
     }));
 
     this.addRows(rows);
@@ -157,6 +161,12 @@ export default class TranscriptGrid {
         filter: true,
         width: 200
       },
+      {
+        field: 'start',
+        headerName: 'Raw Timecode',
+        cellRenderer: this.renderRawTimecode.bind(this),
+        width: 140
+      },
     ];
   }
 
@@ -188,7 +198,24 @@ export default class TranscriptGrid {
       if (target.tagName === 'A' && params.data.playbackStart !== null) {
         this.onPlayAt(params.data.playbackStart);
       }
+    } else if (params.column.getColId() === 'start') {
+      const target = params.event.target as HTMLElement;
+      if (target.tagName === 'A') {
+        this.insertRawTimecode(params.data.start, params.data.end, params.data.filePath);
+      }
     }
+  }
+
+  insertRawTimecode(start: number, end: number, filePath: string) {
+    // Import Native dynamically to avoid circular dependencies
+    import('./Native').then(module => {
+      const native = new module.default();
+      native.insertAudioAtCursor(start, end, filePath).then((result: any) => {
+        if (result && result.error) {
+          this.onError(result.error);
+        }
+      });
+    });
   }
 
   renderStartTime(params: ICellRendererParams) {
@@ -206,6 +233,16 @@ export default class TranscriptGrid {
       return '';
     }
     return `<span class="small text-muted" data-segment-time="${time}">${timestampToString(time)}</span>`;
+  }
+
+  renderRawTimecode(params: ICellRendererParams) {
+    const linkClasses = 'link-offset-2 link-underline link-underline-opacity-0 link-underline-opacity-50-hover small';
+    const start = params.value;
+    const end = params.data.end;
+    if (start === null || start === undefined) {
+      return '';
+    }
+    return `<a href="javascript:" class="${linkClasses}" title="Click to insert timecode at cursor">${timestampToString(start)} - ${timestampToString(end)}</a>`;
   }
 
   renderText(params: ICellRendererParams) {

@@ -6,6 +6,7 @@ export interface AudioSource {
   duration: number;
   channelCount: number;
   merits64BitSamples: boolean;
+  filePath: string;
 }
 
 // An ARA PlaybackRegion, also known as a media item
