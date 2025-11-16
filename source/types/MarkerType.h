@@ -12,13 +12,15 @@ struct MarkerType
         markers,
         regions,
         notes,
+        takemarkers,
         count // Used for array size
     };
 
     static constexpr std::array<std::string_view, count> strings = {
         "markers",
         "regions",
-        "notes"
+        "notes",
+        "take-markers"
     };
 
     static std::optional<Enum> fromString (const std::string& str)

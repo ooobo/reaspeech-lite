@@ -28,11 +28,13 @@ struct ReaperProxy
         hasAddTakeToMediaItem = reaperHost->getReaperApi("AddTakeToMediaItem");
         hasCountMediaItems = reaperHost->getReaperApi("CountMediaItems");
         hasCountSelectedTracks = reaperHost->getReaperApi("CountSelectedTracks");
+        hasCountMediaItems = reaperHost->getReaperApi("CountMediaItems");
         hasGetActiveTake = reaperHost->getReaperApi("GetActiveTake");
         hasGetCursorPositionEx = reaperHost->getReaperApi("GetCursorPositionEx");
         hasGetItemStateChunk = reaperHost->getReaperApi("GetItemStateChunk");
         hasGetLastTouchedTrack = reaperHost->getReaperApi("GetLastTouchedTrack");
         hasGetMediaItem = reaperHost->getReaperApi("GetMediaItem");
+        hasGetMediaItemInfo_Value = reaperHost->getReaperApi("GetMediaItemInfo_Value");
         hasGetMediaItemTake_Source = reaperHost->getReaperApi("GetMediaItemTake_Source");
         hasGetMediaSourceFileName = reaperHost->getReaperApi("GetMediaSourceFileName");
         hasGetSelectedMediaItem = reaperHost->getReaperApi("GetSelectedMediaItem");
@@ -51,6 +53,7 @@ struct ReaperProxy
         hasSetMediaItemPosition = reaperHost->getReaperApi("SetMediaItemPosition");
         hasSetMediaItemTake_Source = reaperHost->getReaperApi("SetMediaItemTake_Source");
         hasSetOnlyTrackSelected = reaperHost->getReaperApi("SetOnlyTrackSelected");
+        hasSetTakeMarker = reaperHost->getReaperApi("SetTakeMarker");
         hasShowConsoleMsg = reaperHost->getReaperApi("ShowConsoleMsg");
         hasUndo_BeginBlock2 = reaperHost->getReaperApi("Undo_BeginBlock2");
         hasUndo_EndBlock2 = reaperHost->getReaperApi("Undo_EndBlock2");
@@ -59,6 +62,7 @@ struct ReaperProxy
     class MediaItem;
     class MediaTrack;
     class MediaTake;
+    class PCM_source;
     class ReaProject;
 
     static constexpr ReaProject* activeProject = nullptr;
@@ -132,6 +136,11 @@ struct ReaperProxy
     }
 
     class PCM_source;
+    void* hasGetMediaItemInfo_Value = nullptr;
+    double GetMediaItemInfo_Value (MediaItem* item, const char* parmname)
+    {
+        REAPER_CALL(GetMediaItemInfo_Value, double (*) (MediaItem*, const char*), item, parmname)
+    }
 
     void* hasGetMediaItemTake_Source = nullptr;
     PCM_source* GetMediaItemTake_Source (MediaTake* take)
@@ -239,6 +248,12 @@ struct ReaperProxy
     void SetOnlyTrackSelected (MediaTrack* track)
     {
         REAPER_CALL(SetOnlyTrackSelected, void (*) (MediaTrack*), track)
+    }
+
+    void* hasSetTakeMarker = nullptr;
+    int SetTakeMarker (MediaTake* take, int idx, const char* name, double* srcpos, int* color)
+    {
+        REAPER_CALL(SetTakeMarker, int (*) (MediaTake*, int, const char*, double*, int*), take, idx, name, srcpos, color)
     }
 
     void* hasShowConsoleMsg = nullptr;
