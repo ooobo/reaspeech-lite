@@ -1112,40 +1112,67 @@ PARAKEET_API int ParakeetEngine_Transcribe(
     size_t resultJsonSize,
     IsAbortedCallback isAborted)
 {
-    if (!handle || !audioData || !resultJson) return 0;
-    
+    if (!handle || !audioData || !resultJson || resultJsonSize == 0) return 0;
+
+    // Initialize result buffer
+    resultJson[0] = '\0';
+
     auto* engine = static_cast<ParakeetEngineImpl*>(handle);
-    
-    std::vector<float> audio(audioData, audioData + audioDataSize);
-    std::vector<ASRSegment> segments;
-    
-    std::function<bool()> abortFunc = [isAborted]() {
-        return isAborted ? isAborted() : false;
-    };
-    
-    bool success = engine->transcribe(audio, segments, abortFunc);
-    
-    if (success) {
-        // Convert segments to JSON (simple format for now)
-        std::ostringstream json;
-        json << "{\"segments\":[";
-        for (size_t i = 0; i < segments.size(); ++i) {
-            if (i > 0) json << ",";
-            json << "{";
-            json << "\"text\":\"" << segments[i].text.toStdString() << "\",";
-            json << "\"start\":" << segments[i].start << ",";
-            json << "\"end\":" << segments[i].end;
-            json << "}";
+
+    try {
+        std::vector<float> audio(audioData, audioData + audioDataSize);
+        std::vector<ASRSegment> segments;
+
+        std::function<bool()> abortFunc = [isAborted]() {
+            return isAborted ? isAborted() : false;
+        };
+
+        bool success = engine->transcribe(audio, segments, abortFunc);
+
+        if (success) {
+            // Convert segments to JSON (simple format for now)
+            std::ostringstream json;
+            json << "{\"segments\":[";
+            for (size_t i = 0; i < segments.size(); ++i) {
+                if (i > 0) json << ",";
+                json << "{";
+                // Safely convert JUCE String to std::string
+                std::string text = segments[i].text.toStdString();
+                // Escape quotes in text
+                std::string escapedText;
+                for (char c : text) {
+                    if (c == '"' || c == '\\') {
+                        escapedText += '\\';
+                    }
+                    escapedText += c;
+                }
+                json << "\"text\":\"" << escapedText << "\",";
+                json << "\"start\":" << segments[i].start << ",";
+                json << "\"end\":" << segments[i].end;
+                json << "}";
+            }
+            json << "]}";
+
+            std::string jsonStr = json.str();
+            // Check if buffer is large enough (including null terminator)
+            if (jsonStr.length() + 1 <= resultJsonSize) {
+                // Use safe string copy with null termination
+                strncpy(resultJson, jsonStr.c_str(), resultJsonSize - 1);
+                resultJson[resultJsonSize - 1] = '\0'; // Ensure null termination
+                return 1;
+            } else {
+                DBG("JSON result too large for buffer");
+                return 0;
+            }
         }
-        json << "]}";
-        
-        std::string jsonStr = json.str();
-        if (jsonStr.length() < resultJsonSize) {
-            strcpy(resultJson, jsonStr.c_str());
-            return 1;
-        }
+    } catch (const std::exception& e) {
+        DBG(juce::String("Exception in ParakeetEngine_Transcribe: ") + juce::String(e.what()));
+        return 0;
+    } catch (...) {
+        DBG("Unknown exception in ParakeetEngine_Transcribe");
+        return 0;
     }
-    
+
     return 0;
 }
 
