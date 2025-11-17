@@ -30,8 +30,8 @@ PARAKEET_API ParakeetEngineHandle ParakeetEngine_Create(const char* modelsDir);
 // Destroy a ParakeetEngine instance
 PARAKEET_API void ParakeetEngine_Destroy(ParakeetEngineHandle handle);
 
-// Get last transcription time in seconds
-PARAKEET_API float ParakeetEngine_GetLastTranscriptionTime(ParakeetEngineHandle handle);
+// Get processing time in seconds from last transcription
+PARAKEET_API double ParakeetEngine_GetProcessingTime(ParakeetEngineHandle handle);
 
 // Download model - returns 1 on success, 0 on failure
 PARAKEET_API int ParakeetEngine_DownloadModel(

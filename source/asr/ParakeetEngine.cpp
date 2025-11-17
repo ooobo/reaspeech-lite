@@ -53,7 +53,7 @@ struct ParakeetEngineImpl
         // Load function pointers
         createFunc = (CreateFunc)GetProcAddress(dllHandle, "ParakeetEngine_Create");
         destroyFunc = (DestroyFunc)GetProcAddress(dllHandle, "ParakeetEngine_Destroy");
-        getLastTranscriptionTimeFunc = (GetLastTranscriptionTimeFunc)GetProcAddress(dllHandle, "ParakeetEngine_GetLastTranscriptionTime");
+        getProcessingTimeFunc = (GetProcessingTimeFunc)GetProcAddress(dllHandle, "ParakeetEngine_GetProcessingTime");
         downloadModelFunc = (DownloadModelFunc)GetProcAddress(dllHandle, "ParakeetEngine_DownloadModel");
         loadModelFunc = (LoadModelFunc)GetProcAddress(dllHandle, "ParakeetEngine_LoadModel");
         transcribeFunc = (TranscribeFunc)GetProcAddress(dllHandle, "ParakeetEngine_Transcribe");
@@ -111,15 +111,15 @@ struct ParakeetEngineImpl
 #endif
     }
 
-    float getLastTranscriptionTime() const
+    double getProcessingTime() const
     {
 #ifdef _WIN32
-        if (isLoaded() && getLastTranscriptionTimeFunc)
+        if (isLoaded() && getProcessingTimeFunc)
         {
-            return getLastTranscriptionTimeFunc(engineHandle);
+            return getProcessingTimeFunc(engineHandle);
         }
 #endif
-        return 0.0f;
+        return 0.0;
     }
 
     bool downloadModel(const std::string &modelName, std::function<bool()> isAborted)
@@ -213,7 +213,7 @@ private:
     // Function pointer types
     typedef ParakeetEngineHandle (*CreateFunc)(const char*);
     typedef void (*DestroyFunc)(ParakeetEngineHandle);
-    typedef float (*GetLastTranscriptionTimeFunc)(ParakeetEngineHandle);
+    typedef double (*GetProcessingTimeFunc)(ParakeetEngineHandle);
     typedef int (*DownloadModelFunc)(ParakeetEngineHandle, const char*, IsAbortedCallback);
     typedef int (*LoadModelFunc)(ParakeetEngineHandle, const char*);
     typedef int (*TranscribeFunc)(ParakeetEngineHandle, const float*, size_t, const char*, char*, size_t, IsAbortedCallback);
@@ -222,7 +222,7 @@ private:
     // Function pointers
     CreateFunc createFunc = nullptr;
     DestroyFunc destroyFunc = nullptr;
-    GetLastTranscriptionTimeFunc getLastTranscriptionTimeFunc = nullptr;
+    GetProcessingTimeFunc getProcessingTimeFunc = nullptr;
     DownloadModelFunc downloadModelFunc = nullptr;
     LoadModelFunc loadModelFunc = nullptr;
     TranscribeFunc transcribeFunc = nullptr;
@@ -243,13 +243,13 @@ ParakeetEngine::~ParakeetEngine()
     DBG("ParakeetEngine destructor");
 }
 
-float ParakeetEngine::getLastTranscriptionTime() const
+double ParakeetEngine::getProcessingTime() const
 {
     if (impl)
     {
-        return impl->getLastTranscriptionTime();
+        return impl->getProcessingTime();
     }
-    return lastTranscriptionTimeSecs;
+    return processingTimeSeconds;
 }
 
 bool ParakeetEngine::downloadModel(const std::string &modelName, std::function<bool()> isAborted)
@@ -293,7 +293,7 @@ bool ParakeetEngine::transcribe(
     }
 
     // DLL not loaded - return error
-    lastTranscriptionTimeSecs = 0.0f;
+    processingTimeSeconds = 0.0;
     segments.clear();
     return false;
 }

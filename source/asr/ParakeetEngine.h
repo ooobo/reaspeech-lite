@@ -19,8 +19,8 @@ public:
     ParakeetEngine(const std::string &modelsDirIn);
     ~ParakeetEngine();
 
-    // Get last transcription time in seconds
-    float getLastTranscriptionTime() const;
+    // Get processing time in seconds from last transcription
+    double getProcessingTime() const;
 
     // Download the model if needed
     bool downloadModel(const std::string &modelName, std::function<bool()> isAborted);
@@ -46,7 +46,7 @@ public:
 private:
     std::string modelsDir;
     std::atomic<int> progress{0};
-    float lastTranscriptionTimeSecs = 0.0f;
+    double processingTimeSeconds = 0.0;
 
     // PIMPL: implementation details hidden in .cpp file
     std::unique_ptr<ParakeetEngineImpl> impl;

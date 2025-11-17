@@ -44,10 +44,10 @@ public:
         downloadTask.reset();
     }
 
-    // Get last transcription time in seconds
-    float getLastTranscriptionTime() const
+    // Get processing time in seconds from last transcription
+    double getProcessingTime() const
     {
-        return lastTranscriptionTimeSecs;
+        return processingTimeSeconds;
     }
 
     // Download the model if needed. Returns true if successful or already downloaded.
@@ -357,9 +357,9 @@ public:
             // Calculate processing time
             auto endTime = std::chrono::high_resolution_clock::now();
             auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-            float processingTime = durationMs.count() / 1000.0f;
+            double processingTime = durationMs.count() / 1000.0;
 
-            lastTranscriptionTimeSecs = processingTime; // Store for UI display
+            processingTimeSeconds = processingTime; // Store for UI display
 
             DBG(juce::String::formatted("Parakeet transcription completed in %.2f seconds (%.2fx realtime)",
                                         processingTime, audioDuration / processingTime));
@@ -1048,7 +1048,7 @@ private:
     std::map<int, std::string> vocab;
     int64_t vocabSize = 0;
     int blankIdx = -1;
-    float lastTranscriptionTimeSecs = 0.0f;
+    double processingTimeSeconds = 0.0;
 };
 
 // C API Implementation
@@ -1072,11 +1072,11 @@ PARAKEET_API void ParakeetEngine_Destroy(ParakeetEngineHandle handle)
     }
 }
 
-PARAKEET_API float ParakeetEngine_GetLastTranscriptionTime(ParakeetEngineHandle handle)
+PARAKEET_API double ParakeetEngine_GetProcessingTime(ParakeetEngineHandle handle)
 {
-    if (!handle) return 0.0f;
+    if (!handle) return 0.0;
     auto* engine = static_cast<ParakeetEngineImpl*>(handle);
-    return engine->getLastTranscriptionTime();
+    return engine->getProcessingTime();
 }
 
 PARAKEET_API int ParakeetEngine_DownloadModel(
