@@ -265,7 +265,7 @@ public:
             case ASRThreadPoolJobStatus::finished:
                 // Get transcription time from both engines
                 if (useParakeet && parakeetEngine != nullptr)
-                    transcriptionTime = parakeetEngine->getProcessingTime();
+                    transcriptionTime = parakeetEngine->getLastTranscriptionTime();
                 else if (!useParakeet && asrEngine != nullptr)
                     transcriptionTime = asrEngine->getProcessingTime();
                 break;
@@ -293,7 +293,7 @@ public:
         bool useParakeet = usingParakeetEngine.load();
 
         if (useParakeet && parakeetEngine != nullptr)
-            transcriptionTime = parakeetEngine->getProcessingTime();
+            transcriptionTime = parakeetEngine->getLastTranscriptionTime();
         else if (!useParakeet && asrEngine != nullptr)
             transcriptionTime = asrEngine->getProcessingTime();
 
