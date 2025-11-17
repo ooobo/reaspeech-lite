@@ -158,6 +158,7 @@ include(SharedCodeDefaults)
 set(SourceFiles
     source/Main.cpp
     source/reaper/IReaperHostApplication.cpp
+    source/asr/ParakeetEngine.cpp
 )
 target_sources(SharedCode INTERFACE ${SourceFiles})
 
@@ -169,7 +170,7 @@ include(XcodePrettify)
 
 target_include_directories(SharedCode
     INTERFACE
-    ${ONNXRUNTIME_INCLUDE_DIRS}
+    # ONNX Runtime moved to separate ParakeetEngine DLL
 )
 
 target_compile_definitions(SharedCode
@@ -187,7 +188,7 @@ target_compile_definitions(SharedCode
 
 target_link_directories(SharedCode
     INTERFACE
-    ${ONNXRUNTIME_LIB_DIR}
+    # ONNX Runtime moved to separate ParakeetEngine DLL
 )
 
 target_link_libraries(SharedCode
@@ -202,21 +203,50 @@ target_link_libraries(SharedCode
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
     whisper
-    onnxruntime
+    # onnxruntime moved to separate ParakeetEngine DLL
 )
 
 # Link the JUCE plugin targets with our SharedCode target
 target_link_libraries("${PROJECT_NAME}" PRIVATE SharedCode)
 
-# Windows: Delay-load ONNX Runtime DLL to prevent loading at plugin startup
-# Apply directly to VST3 target to ensure the flags are properly applied to the final binary
+# Create ParakeetEngine as a separate DLL (Windows only for now)
+# This keeps ONNX Runtime code completely separate from the main VST3
 if(WIN32)
-    # Apply delay-load to the VST3 target specifically
-    target_link_options("${PROJECT_NAME}_VST3" PRIVATE
-        /DELAYLOAD:onnxruntime.dll
+    add_library(ParakeetEngine SHARED
+        source/asr/ParakeetEngineDLL.cpp
     )
-    target_link_libraries("${PROJECT_NAME}_VST3" PRIVATE delayimp)
+
+    target_include_directories(ParakeetEngine PRIVATE
+        ${ONNXRUNTIME_INCLUDE_DIRS}
+    )
+
+    target_link_directories(ParakeetEngine PRIVATE
+        ${ONNXRUNTIME_LIB_DIR}
+    )
+
+    target_link_libraries(ParakeetEngine PRIVATE
+        juce::juce_core
+        onnxruntime
+    )
+
+    target_compile_definitions(ParakeetEngine PRIVATE
+        JUCE_STANDALONE_APPLICATION=0
+    )
+
+    # Copy ParakeetEngine.dll and onnxruntime.dll into VST3 bundle
+    add_custom_command(TARGET ${PROJECT_NAME}_VST3 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:ParakeetEngine>
+            $<TARGET_FILE_DIR:${PROJECT_NAME}_VST3>/ParakeetEngine.dll
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${ONNXRUNTIME_LIB_DIR}/onnxruntime.dll
+            $<TARGET_FILE_DIR:${PROJECT_NAME}_VST3>/onnxruntime.dll
+        COMMENT "Copying ParakeetEngine.dll and ONNX Runtime DLL into VST3 bundle"
+    )
 endif()
+
+# Windows: No longer need delay-load since ONNX Runtime is in separate DLL
+# (ParakeetEngine.dll is loaded dynamically by the plugin)
 
 # macOS: Copy ONNX Runtime library into VST3 bundle and fix paths
 if(APPLE)
