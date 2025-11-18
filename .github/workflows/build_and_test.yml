@@ -164,7 +164,7 @@ jobs:
         if: env.SHOULD_SKIP != 'true' && !matrix.cuda
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller onnx-asr onnxruntime huggingface-hub
+          pip install pyinstaller onnx-asr onnxruntime huggingface-hub soundfile resampy
 
       - name: Build Parakeet executable (Linux)
         if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'

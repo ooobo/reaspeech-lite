@@ -280,12 +280,13 @@ private:
 
     juce::String runPythonTranscription (const juce::String& audioFilePath, std::function<bool ()> isAborted)
     {
-        juce::String command;
+        juce::StringArray args;
 
         // Use bundled executable if available, otherwise fall back to Python
         if (parakeetExecutablePath.isNotEmpty())
         {
-            command = "\"" + parakeetExecutablePath + "\" \"" + audioFilePath + "\"";
+            args.add (parakeetExecutablePath);
+            args.add (audioFilePath);
         }
         else
         {
@@ -328,14 +329,16 @@ except Exception as e:
                 return {};
             }
 
-            command = pythonCommand + " \"" + scriptFile.getFullPathName() + "\" \"" + audioFilePath + "\"";
+            args.add (pythonCommand);
+            args.add (scriptFile.getFullPathName());
+            args.add (audioFilePath);
         }
 
-        DBG ("Running: " + command);
+        DBG ("Running: " + args.joinIntoString (" "));
 
         // Run the command
         juce::ChildProcess process;
-        if (! process.start (command))
+        if (! process.start (args))
         {
             DBG ("Failed to start process");
             return {};
