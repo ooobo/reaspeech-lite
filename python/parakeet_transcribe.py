@@ -9,6 +9,19 @@ import os
 # Debug: Print raw sys.argv to stderr to diagnose argument passing issues
 print(f"DEBUG: sys.argv = {sys.argv}", file=sys.stderr)
 
+# Check if this is a multiprocessing spawn invocation
+# On macOS, multiprocessing uses spawn mode which re-executes the script
+# We need to detect this and allow it to proceed without our main() logic
+if '-c' in sys.argv:
+    # This is a multiprocessing spawn - let it execute as-is
+    # Don't import our modules or run main()
+    print("DEBUG: Detected multiprocessing spawn, executing code and exiting", file=sys.stderr)
+    # Execute the code that was passed via -c
+    code_index = sys.argv.index('-c') + 1
+    if code_index < len(sys.argv):
+        exec(sys.argv[code_index])
+    sys.exit(0)
+
 import argparse
 import re
 from pathlib import Path
