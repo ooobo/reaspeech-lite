@@ -154,6 +154,55 @@ jobs:
         working-directory: source/ts
         run: npm run build
 
+      - name: Setup Python
+        if: env.SHOULD_SKIP != 'true' && !matrix.cuda
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        if: env.SHOULD_SKIP != 'true' && !matrix.cuda
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller onnx-asr
+
+      - name: Build Parakeet executable (Linux)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'
+        working-directory: python
+        run: bash build_executable.sh
+
+      - name: Build Parakeet executable (macOS)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'macOS'
+        working-directory: python
+        run: bash build_executable.sh
+
+      - name: Build Parakeet executable (Windows)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
+        working-directory: python
+        run: ./build_executable.bat
+
+      - name: Upload Parakeet executable artifact (Linux)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: parakeet-transcribe-linux
+          path: python/dist/parakeet-transcribe-linux
+
+      - name: Upload Parakeet executable artifact (macOS)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: parakeet-transcribe-macos
+          path: python/dist/parakeet-transcribe-macos
+
+      - name: Upload Parakeet executable artifact (Windows)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: parakeet-transcribe-windows
+          path: python/dist/parakeet-transcribe-windows.exe
+
       - name: Cache the build
         if: env.SHOULD_SKIP != 'true'
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -321,3 +370,6 @@ jobs:
             */*.exe
             */*.zip
             */*.pkg
+            parakeet-transcribe-linux/parakeet-transcribe-linux
+            parakeet-transcribe-macos/parakeet-transcribe-macos
+            parakeet-transcribe-windows/parakeet-transcribe-windows.exe
