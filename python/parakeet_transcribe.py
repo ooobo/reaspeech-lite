@@ -6,29 +6,8 @@ Standalone executable for ASR transcription using onnx-asr
 import sys
 import os
 
-# Filter out Python interpreter flags and multiprocessing spawn arguments
-# This fixes the "unrecognized arguments" and "from multiprocessing.resource_tracker" errors
-python_flags = {'-B', '-S', '-I', '-c', '-u', '-O', '-OO', '-d', '-E', '-s', '-v', '-W', '-X'}
-filtered_args = [sys.argv[0]]
-i = 1
-while i < len(sys.argv):
-    arg = sys.argv[i]
-    # Skip Python interpreter flags
-    if arg in python_flags:
-        i += 1
-        continue
-    # Skip multiprocessing spawn code (contains "import" or "main(")
-    if 'import' in arg or 'main(' in arg:
-        i += 1
-        continue
-    # Skip -c flag and its argument (Python code execution)
-    if arg == '-c' and i + 1 < len(sys.argv):
-        i += 2
-        continue
-    filtered_args.append(arg)
-    i += 1
-
-sys.argv = filtered_args
+# Debug: Print raw sys.argv to stderr to diagnose argument passing issues
+print(f"DEBUG: sys.argv = {sys.argv}", file=sys.stderr)
 
 import argparse
 import re
