@@ -29,13 +29,22 @@ a = Analysis(
         '_posixsubprocess',  # Required for subprocess on Unix
         'multiprocessing.resource_tracker',  # Fix resource tracker issues
         'multiprocessing.spawn',  # macOS multiprocessing support
+        'pyexpat',  # Required for XML parsing
+        'xml.parsers.expat',  # Required for plistlib on macOS
     ],
     hookspath=[],
-    hooksconfig={},
+    hooksconfig={
+        'gi': {
+            'module-versions': {},
+        }
+    },
     runtime_hooks=[],
     excludes=[
-        'setuptools',  # Reduce bloat
-        'distutils',   # Reduce bloat
+        'setuptools',
+        'distutils',
+        'pkg_resources',  # Explicitly exclude pkg_resources
+        'wheel',
+        'pip',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -43,11 +52,19 @@ a = Analysis(
     noarchive=False,
 )
 
+# Filter out problematic runtime hooks that cause -B -S -I -c argument issues
+filtered_scripts = []
+excluded_rthooks = ['pyi_rth_pkgres', 'pyi_rth_setuptools', 'pyi_rth_pkgutil']
+for script in a.scripts:
+    script_name = script[0] if isinstance(script, tuple) else str(script)
+    if not any(rth in script_name for rth in excluded_rthooks):
+        filtered_scripts.append(script)
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
     pyz,
-    a.scripts,
+    filtered_scripts,
     a.binaries,
     a.zipfiles,
     a.datas,
