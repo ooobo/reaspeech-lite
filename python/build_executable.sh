@@ -41,6 +41,11 @@ pyinstaller \
     --name "parakeet-transcribe-$PLATFORM_NAME" \
     --clean \
     --noconfirm \
+    --collect-all onnx-asr \
+    --hidden-import onnxruntime \
+    --hidden-import numpy \
+    --hidden-import librosa \
+    --hidden-import soundfile \
     parakeet_transcribe.py
 
 echo ""

@@ -28,6 +28,11 @@ pyinstaller ^
     --name parakeet-transcribe-windows ^
     --clean ^
     --noconfirm ^
+    --collect-all onnx-asr ^
+    --hidden-import onnxruntime ^
+    --hidden-import numpy ^
+    --hidden-import librosa ^
+    --hidden-import soundfile ^
     parakeet_transcribe.py
 
 echo.
