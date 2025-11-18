@@ -3,15 +3,16 @@
 
 import sys
 import os
-from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
 block_cipher = None
 
 # Collect all data files from onnx_asr (includes .onnx files, vocab files, etc.)
 onnx_asr_datas = collect_data_files('onnx_asr')
 
-# Collect numpy dynamic libraries to fix circular import issues
+# Collect all numpy submodules and binaries to fix circular import issues
 numpy_binaries = collect_dynamic_libs('numpy')
+numpy_submodules = collect_submodules('numpy')
 
 # Determine platform name
 if sys.platform.startswith('linux'):
@@ -28,19 +29,13 @@ a = Analysis(
     pathex=[],
     binaries=numpy_binaries,
     datas=onnx_asr_datas,
-    hiddenimports=[
+    hiddenimports=numpy_submodules + [
         '_posixsubprocess',  # Required for subprocess on Unix
         'pyexpat',  # Required for XML parsing
         'xml.parsers.expat',  # Required for plistlib on macOS
-        'numpy.core._multiarray_umath',  # Fix numpy circular import
-        'numpy.linalg._umath_linalg',  # Fix numpy linalg circular import
-        'numpy.random._common',
-        'numpy.random._bounded_integers',
-        'numpy.random._mt19937',
-        'numpy.random._philox',
-        'numpy.random._pcg64',
-        'numpy.random._sfc64',
-        'numpy.random._generator',
+        'multiprocessing',  # Required for macOS spawn mode
+        'multiprocessing.spawn',
+        'multiprocessing.resource_tracker',
     ],
     hookspath=[],
     hooksconfig={
@@ -63,8 +58,9 @@ a = Analysis(
 )
 
 # Filter out problematic runtime hooks that cause module loading issues
+# Keep multiprocessing hook for macOS spawn mode
 filtered_scripts = []
-excluded_rthooks = ['pyi_rth_pkgres', 'pyi_rth_setuptools', 'pyi_rth_pkgutil', 'pyi_rth_multiprocessing']
+excluded_rthooks = ['pyi_rth_pkgres', 'pyi_rth_setuptools', 'pyi_rth_pkgutil']
 for script in a.scripts:
     script_name = script[0] if isinstance(script, tuple) else str(script)
     if not any(rth in script_name for rth in excluded_rthooks):
