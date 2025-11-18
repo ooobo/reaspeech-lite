@@ -11,6 +11,13 @@ include(PamplejuceVersion)
 # Configures universal binaries and decides which version of macOS to support
 include(PamplejuceMacOS)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "" FORCE)
+# Temporarily disable universal binaries due to ONNX Runtime architecture issues
+# We'll revisit this once we have a better ONNX Runtime integration strategy
+if(APPLE AND DEFINED CMAKE_OSX_ARCHITECTURES)
+    # Build for native architecture only
+    unset(CMAKE_OSX_ARCHITECTURES CACHE)
+    message(STATUS "Building for native architecture only (ONNX Runtime limitation)")
+endif()
 
 include(JUCEDefaults)
 
