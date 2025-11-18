@@ -3,7 +3,6 @@
 
 import sys
 import os
-from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
 
@@ -50,18 +49,6 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
-
-# Collect all from onnx-asr
-onnx_asr_datas, onnx_asr_binaries, onnx_asr_hiddenimports = collect_all('onnx_asr')
-a.datas += onnx_asr_datas
-a.binaries += onnx_asr_binaries
-a.hiddenimports += onnx_asr_hiddenimports
-
-# Collect all from onnxruntime
-onnxruntime_datas, onnxruntime_binaries, onnxruntime_hiddenimports = collect_all('onnxruntime')
-a.datas += onnxruntime_datas
-a.binaries += onnxruntime_binaries
-a.hiddenimports += onnxruntime_hiddenimports
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
