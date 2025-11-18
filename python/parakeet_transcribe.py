@@ -29,12 +29,12 @@ def load_audio(audio_path):
 
         # Resample to 16kHz if needed
         if sr != 16000:
-            try:
-                import resampy
-                audio = resampy.resample(audio, sr, 16000)
-            except ImportError:
-                # If resampy not available, use simple downsampling
-                audio = audio[::int(sr/16000)]
+            # Simple linear interpolation for resampling
+            # (audio from C++ side is always 16kHz, but handle other sources)
+            ratio = 16000 / sr
+            new_length = int(len(audio) * ratio)
+            indices = np.linspace(0, len(audio) - 1, new_length)
+            audio = np.interp(indices, np.arange(len(audio)), audio)
 
         return audio.astype(np.float32)
     except Exception as e:

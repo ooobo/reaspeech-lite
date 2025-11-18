@@ -25,11 +25,18 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=onnx_asr_datas,
-    hiddenimports=[],
+    hiddenimports=[
+        '_posixsubprocess',  # Required for subprocess on Unix
+        'multiprocessing.resource_tracker',  # Fix resource tracker issues
+        'multiprocessing.spawn',  # macOS multiprocessing support
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        'setuptools',  # Reduce bloat
+        'distutils',   # Reduce bloat
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -48,8 +55,8 @@ exe = EXE(
     name=f'parakeet-transcribe-{platform_name}',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
+    strip=True,  # Strip binary to reduce size and avoid some runtime issues
+    upx=False,  # Disable UPX on macOS to avoid codesign issues
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,

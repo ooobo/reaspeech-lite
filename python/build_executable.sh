@@ -21,7 +21,7 @@ fi
 
 # Install dependencies
 echo "Installing Python dependencies..."
-pip install onnx-asr onnxruntime huggingface-hub soundfile resampy
+pip install onnx-asr onnxruntime huggingface-hub soundfile numpy
 
 # Determine platform
 PLATFORM=$(uname -s)
