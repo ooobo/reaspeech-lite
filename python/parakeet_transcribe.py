@@ -26,8 +26,8 @@ def main():
         # Load ASR model
         asr = load_model(args.model)
 
-        # Transcribe
-        result = asr(str(audio_file))
+        # Transcribe using recognize method
+        result = asr.recognize(str(audio_file))
 
         # Output result
         if result:
