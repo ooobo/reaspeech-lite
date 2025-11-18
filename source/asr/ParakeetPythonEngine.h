@@ -116,9 +116,9 @@ public:
                     continue;
 
                 ASRSegment segment;
-                segment.text = jsonObj->getProperty ("text", "").toString();
-                segment.start = static_cast<float> (jsonObj->getProperty ("start", 0.0));
-                segment.end = static_cast<float> (jsonObj->getProperty ("end", 0.0));
+                segment.text = jsonObj->getProperty ("text").toString();
+                segment.start = static_cast<float> (static_cast<double> (jsonObj->getProperty ("start")));
+                segment.end = static_cast<float> (static_cast<double> (jsonObj->getProperty ("end")));
 
                 if (! segment.text.isEmpty())
                     segments.push_back (segment);
