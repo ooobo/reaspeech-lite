@@ -43,24 +43,26 @@ if(NOT onnxruntime_FOUND)
     message(STATUS "ONNX Runtime not found via find_package, trying FetchContent...")
     include(FetchContent)
 
+    set(ONNXRUNTIME_VERSION "1.20.1")
+
     # Determine OS and architecture for the correct ONNX Runtime package
     if(WIN32)
-        set(ONNX_PLATFORM "win")
-        set(ONNX_ARCH "x64")
+        set(ONNX_PACKAGE_NAME "onnxruntime-win-x64-${ONNXRUNTIME_VERSION}")
+        set(ONNX_ARCHIVE_EXT "zip")
     elseif(APPLE)
-        set(ONNX_PLATFORM "osx")
         if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
-            set(ONNX_ARCH "arm64")
+            set(ONNX_PACKAGE_NAME "onnxruntime-osx-arm64-${ONNXRUNTIME_VERSION}")
         else()
-            set(ONNX_ARCH "x86_64")
+            set(ONNX_PACKAGE_NAME "onnxruntime-osx-x86_64-${ONNXRUNTIME_VERSION}")
         endif()
+        set(ONNX_ARCHIVE_EXT "tgz")
     else()
-        set(ONNX_PLATFORM "linux")
-        set(ONNX_ARCH "x64")
+        set(ONNX_PACKAGE_NAME "onnxruntime-linux-x64-${ONNXRUNTIME_VERSION}")
+        set(ONNX_ARCHIVE_EXT "tgz")
     endif()
 
-    set(ONNXRUNTIME_VERSION "1.20.1")
-    set(ONNXRUNTIME_URL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/onnxruntime-${ONNX_PLATFORM}-${ONNX_ARCH}-${ONNXRUNTIME_VERSION}.tgz")
+    set(ONNXRUNTIME_URL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ONNX_PACKAGE_NAME}.${ONNX_ARCHIVE_EXT}")
+    message(STATUS "Downloading ONNX Runtime from: ${ONNXRUNTIME_URL}")
 
     FetchContent_Declare(
         onnxruntime
@@ -76,6 +78,7 @@ if(NOT onnxruntime_FOUND)
     # Find the ONNX Runtime library
     if(WIN32)
         set(ONNXRUNTIME_LIB "${ONNXRUNTIME_LIB_DIR}/onnxruntime.lib")
+        set(ONNXRUNTIME_DLL "${ONNXRUNTIME_LIB_DIR}/onnxruntime.dll")
     elseif(APPLE)
         set(ONNXRUNTIME_LIB "${ONNXRUNTIME_LIB_DIR}/libonnxruntime.dylib")
     else()
@@ -93,6 +96,10 @@ if(NOT onnxruntime_FOUND)
         set_target_properties(onnxruntime PROPERTIES
             IMPORTED_IMPLIB "${ONNXRUNTIME_LIB}"
         )
+        # Copy DLL to output directory for Windows
+        if(EXISTS "${ONNXRUNTIME_DLL}")
+            file(COPY "${ONNXRUNTIME_DLL}" DESTINATION "${CMAKE_BINARY_DIR}")
+        endif()
     endif()
 endif()
 
