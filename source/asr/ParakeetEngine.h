@@ -299,7 +299,7 @@ private:
     // Load vocabulary from file
     std::map<int, std::string> loadVocab (const std::string& vocabPath)
     {
-        std::map<int, std::string> vocab;
+        std::map<int, std::string> result;
         std::ifstream infile (vocabPath);
         std::string line;
 
@@ -319,11 +319,11 @@ private:
                 {
                     token.replace (pos, 3, " ");
                 }
-                vocab[id] = token;
+                result[id] = token;
             }
         }
 
-        return vocab;
+        return result;
     }
 
     // Find blank token index in vocabulary
@@ -607,7 +607,7 @@ private:
             }
         }
 
-        return SafeUTF8::encode (decodeSpacePattern (joined).c_str());
+        return SafeUTF8::encode (decodeSpacePattern (joined).c_str()).toStdString();
     }
 
     std::string modelsDir;
