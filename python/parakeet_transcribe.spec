@@ -52,9 +52,9 @@ a = Analysis(
     noarchive=False,
 )
 
-# Filter out problematic runtime hooks that cause -B -S -I -c argument issues
+# Filter out problematic runtime hooks that cause module loading issues
 filtered_scripts = []
-excluded_rthooks = ['pyi_rth_pkgres', 'pyi_rth_setuptools', 'pyi_rth_pkgutil']
+excluded_rthooks = ['pyi_rth_pkgres', 'pyi_rth_setuptools', 'pyi_rth_pkgutil', 'pyi_rth_multiprocessing']
 for script in a.scripts:
     script_name = script[0] if isinstance(script, tuple) else str(script)
     if not any(rth in script_name for rth in excluded_rthooks):
@@ -72,10 +72,8 @@ exe = EXE(
     name=f'parakeet-transcribe-{platform_name}',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,  # Strip binary to reduce size and avoid some runtime issues
-    upx=False,  # Disable UPX on macOS to avoid codesign issues
-    upx_exclude=[],
-    runtime_tmpdir=None,
+    strip=True,
+    upx=False,
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,

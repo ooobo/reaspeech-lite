@@ -5,6 +5,12 @@ Standalone executable for ASR transcription using onnx-asr
 """
 import sys
 import os
+
+# Filter out Python interpreter flags that might be incorrectly passed as arguments
+# This fixes the "unrecognized arguments: -B -S -I -c" error on macOS
+python_flags = {'-B', '-S', '-I', '-c', '-u', '-O', '-OO', '-d', '-E', '-s', '-v', '-W', '-X'}
+sys.argv = [sys.argv[0]] + [arg for arg in sys.argv[1:] if arg not in python_flags]
+
 import argparse
 import re
 from pathlib import Path
