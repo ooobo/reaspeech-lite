@@ -37,16 +37,9 @@ echo "Building for platform: $PLATFORM_NAME"
 # Build executable
 echo "Running PyInstaller..."
 pyinstaller \
-    --onefile \
-    --name "parakeet-transcribe-$PLATFORM_NAME" \
     --clean \
     --noconfirm \
-    --collect-all onnx-asr \
-    --hidden-import onnxruntime \
-    --hidden-import numpy \
-    --hidden-import librosa \
-    --hidden-import soundfile \
-    parakeet_transcribe.py
+    parakeet_transcribe.spec
 
 echo ""
 echo "Build complete!"

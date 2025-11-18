@@ -42,6 +42,5 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.spec
 python/build/
 python/dist/
