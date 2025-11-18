@@ -37,6 +37,65 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Add whisper.cpp
 add_subdirectory(whisper.cpp)
 
+# Add ONNX Runtime
+find_package(onnxruntime QUIET)
+if(NOT onnxruntime_FOUND)
+    message(STATUS "ONNX Runtime not found via find_package, trying FetchContent...")
+    include(FetchContent)
+
+    # Determine OS and architecture for the correct ONNX Runtime package
+    if(WIN32)
+        set(ONNX_PLATFORM "win")
+        set(ONNX_ARCH "x64")
+    elseif(APPLE)
+        set(ONNX_PLATFORM "osx")
+        if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
+            set(ONNX_ARCH "arm64")
+        else()
+            set(ONNX_ARCH "x86_64")
+        endif()
+    else()
+        set(ONNX_PLATFORM "linux")
+        set(ONNX_ARCH "x64")
+    endif()
+
+    set(ONNXRUNTIME_VERSION "1.20.1")
+    set(ONNXRUNTIME_URL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/onnxruntime-${ONNX_PLATFORM}-${ONNX_ARCH}-${ONNXRUNTIME_VERSION}.tgz")
+
+    FetchContent_Declare(
+        onnxruntime
+        URL ${ONNXRUNTIME_URL}
+    )
+
+    FetchContent_MakeAvailable(onnxruntime)
+
+    # Set include and library paths
+    set(ONNXRUNTIME_INCLUDE_DIRS "${onnxruntime_SOURCE_DIR}/include")
+    set(ONNXRUNTIME_LIB_DIR "${onnxruntime_SOURCE_DIR}/lib")
+
+    # Find the ONNX Runtime library
+    if(WIN32)
+        set(ONNXRUNTIME_LIB "${ONNXRUNTIME_LIB_DIR}/onnxruntime.lib")
+    elseif(APPLE)
+        set(ONNXRUNTIME_LIB "${ONNXRUNTIME_LIB_DIR}/libonnxruntime.dylib")
+    else()
+        set(ONNXRUNTIME_LIB "${ONNXRUNTIME_LIB_DIR}/libonnxruntime.so")
+    endif()
+
+    # Create imported target
+    add_library(onnxruntime SHARED IMPORTED)
+    set_target_properties(onnxruntime PROPERTIES
+        IMPORTED_LOCATION "${ONNXRUNTIME_LIB}"
+        INTERFACE_INCLUDE_DIRECTORIES "${ONNXRUNTIME_INCLUDE_DIRS}"
+    )
+
+    if(WIN32)
+        set_target_properties(onnxruntime PROPERTIES
+            IMPORTED_IMPLIB "${ONNXRUNTIME_LIB}"
+        )
+    endif()
+endif()
+
 # See `docs/CMake API.md` in the JUCE repo for all config options
 juce_add_plugin("${PROJECT_NAME}"
     BUNDLE_ID "${BUNDLE_ID}"
@@ -100,6 +159,7 @@ target_link_libraries(SharedCode
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
     whisper
+    onnxruntime
 )
 
 # Link the JUCE plugin targets with our SharedCode target

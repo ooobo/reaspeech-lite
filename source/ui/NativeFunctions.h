@@ -11,6 +11,7 @@
 
 #include "../Config.h"
 #include "../asr/ASREngine.h"
+#include "../asr/ParakeetEngine.h"
 #include "../asr/ASROptions.h"
 #include "../asr/ASRThreadPoolJob.h"
 #include "../asr/WhisperLanguages.h"
@@ -30,6 +31,8 @@ public:
         audioProcessor (audioProcessorIn)
     {
         asrEngine = std::make_unique<ASREngine> (Config::getModelsDir());
+        // Don't create ParakeetEngine here - it will be created lazily when first needed
+        // This prevents ONNX Runtime from being loaded at plugin startup
     }
 
     // Timeout in milliseconds for aborting transcription jobs
@@ -242,6 +245,8 @@ public:
                 status = "Downloading";
                 if (asrEngine != nullptr)
                     progress = asrEngine->getProgress();
+                if (parakeetEngine != nullptr)
+                    progress = parakeetEngine->getProgress();
                 break;
             case ASRThreadPoolJobStatus::loadingModel:
                 status = "Loading Model";
@@ -250,6 +255,8 @@ public:
                 status = "Transcribing";
                 if (asrEngine != nullptr)
                     progress = asrEngine->getProgress();
+                if (parakeetEngine != nullptr)
+                    progress = parakeetEngine->getProgress();
                 break;
             case ASRThreadPoolJobStatus::ready:
             case ASRThreadPoolJobStatus::aborted:
@@ -423,6 +430,36 @@ public:
         const auto audioSourcePersistentID = args[0].toString();
         if (auto* audioSource = getAudioSourceByPersistentID (audioSourcePersistentID))
         {
+            // Determine which engine to use based on model name
+            bool useParakeet = Config::isParakeetModel (options->modelName.toStdString());
+
+            // Lazy initialization of ParakeetEngine - only create when first needed
+            if (useParakeet && parakeetEngine == nullptr)
+            {
+                parakeetEngine = std::make_unique<ParakeetEngine> (Config::getModelsDir());
+            }
+
+            juce::ThreadPoolJob* job = nullptr;
+
+            auto statusCallback = [this] (ASRThreadPoolJobStatus status) {
+                asrStatus = status;
+            };
+
+            auto completionCallback = [this, complete] (const ASRThreadPoolJobResult& result) {
+                if (result.isError)
+                    complete (makeError (result.errorMessage));
+                else
+                {
+                    juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+                    juce::Array<juce::var> segments;
+                    for (const auto& segment : result.segments)
+                        segments.add (segment.toDynamicObject(false).get());
+                    obj->setProperty ("segments", segments);
+                    complete (juce::var (obj.get()));
+                }
+            };
+
+            // Look up file path if needed (for REAPER integration)
             auto* rsAudioSource = dynamic_cast<ReaSpeechLiteAudioSource*>(audioSource);
             if (rsAudioSource && rsAudioSource->getFilePath().isEmpty())
             {
@@ -461,27 +498,27 @@ public:
                 rsAudioSource->setFilePath (audioFilePath);
             }
 
-            auto* job = new ASRThreadPoolJob (
-                *asrEngine,
-                audioSource,
-                std::move(options),
-                [this] (ASRThreadPoolJobStatus status) {
-                    asrStatus = status;
-                },
-                [this, complete] (const ASRThreadPoolJobResult& result) {
-                    if (result.isError)
-                        complete (makeError (result.errorMessage));
-                    else
-                    {
-                        juce::DynamicObject::Ptr obj = new juce::DynamicObject();
-                        juce::Array<juce::var> segments;
-                        for (const auto& segment : result.segments)
-                            segments.add (segment.toDynamicObject(false).get());
-                        obj->setProperty ("segments", segments);
-                        complete (juce::var (obj.get()));
-                    }
-                }
-            );
+            if (useParakeet)
+            {
+                job = new ASRThreadPoolJob<ParakeetEngine> (
+                    *parakeetEngine,
+                    audioSource,
+                    std::move(options),
+                    statusCallback,
+                    completionCallback
+                );
+            }
+            else
+            {
+                job = new ASRThreadPoolJob<ASREngine> (
+                    *asrEngine,
+                    audioSource,
+                    std::move(options),
+                    statusCallback,
+                    completionCallback
+                );
+            }
+
             threadPool.addJob (job, true);
             return;
         }
@@ -570,7 +607,17 @@ public:
 
     void getProcessingTime (const juce::var&, std::function<void (const juce::var&)> complete)
     {
-        complete (juce::var (asrEngine->getProcessingTime()));
+        if (asrEngine != nullptr)
+        {
+            complete (juce::var (asrEngine->getProcessingTime()));
+            return;
+        }
+        if (parakeetEngine != nullptr)
+        {
+            complete (juce::var (parakeetEngine->getProcessingTime()));
+            return;
+        }
+        complete (juce::var (0.0));
     }
 
 private:
@@ -765,6 +812,7 @@ private:
     ReaperProxy& rpr { audioProcessor.reaperProxy };
 
     std::unique_ptr<ASREngine> asrEngine;
+    std::unique_ptr<ParakeetEngine> parakeetEngine;
     std::atomic<ASRThreadPoolJobStatus> asrStatus;
     std::atomic<bool> debugMode { false };
     juce::ThreadPool threadPool { 1 };
