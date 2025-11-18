@@ -200,9 +200,9 @@ public:
             lastModelName = modelName;
             return true;
         }
-        catch (const Ort::Exception& e)
+        catch (const Ort::Exception& ex)
         {
-            DBG ("ONNX Runtime error: " + juce::String (e.what()));
+            DBG ("ONNX Runtime error: " + juce::String (ex.what()));
             preprocessor.reset();
             encoder.reset();
             decoderJoint.reset();
@@ -213,7 +213,7 @@ public:
     // Transcribe the audio data. Returns true if successful.
     bool transcribe (
         const std::vector<float>& audioData,
-        ASROptions& options,
+        ASROptions& /*options*/,
         std::vector<ASRSegment>& segments,
         std::function<bool ()> isAborted)
     {
@@ -270,9 +270,9 @@ public:
             progress.store (100);
             return true;
         }
-        catch (const Ort::Exception& e)
+        catch (const Ort::Exception& ex)
         {
-            DBG ("ONNX Runtime error during transcription: " + juce::String (e.what()));
+            DBG ("ONNX Runtime error during transcription: " + juce::String (ex.what()));
             return false;
         }
     }
@@ -311,9 +311,11 @@ private:
 
             if (iss >> token >> id)
             {
-                // Replace Unicode character \u2581 with space
+                // Replace Unicode character U+2581 (lower one eighth block) with space
+                // Using hex escape sequence to avoid encoding issues
+                const char unicodeChar[] = "\xe2\x96\x81"; // UTF-8 encoding of U+2581
                 size_t pos;
-                while ((pos = token.find ("\u2581")) != std::string::npos)
+                while ((pos = token.find (unicodeChar)) != std::string::npos)
                 {
                     token.replace (pos, 3, " ");
                 }
@@ -325,14 +327,14 @@ private:
     }
 
     // Find blank token index in vocabulary
-    int findBlankIdx (const std::string& token, const std::map<int, std::string>& vocab)
+    int findBlankIdx (const std::string& token, const std::map<int, std::string>& vocabMap)
     {
-        auto it = std::find_if (vocab.begin(), vocab.end(), [&token] (const auto& pair)
+        auto it = std::find_if (vocabMap.begin(), vocabMap.end(), [&token] (const auto& pair)
         {
             return pair.second == token;
         });
 
-        if (it != vocab.end())
+        if (it != vocabMap.end())
             return it->first;
 
         return -1;
@@ -417,7 +419,7 @@ private:
     }
 
     // Clone decoder state
-    std::pair<Ort::Value, Ort::Value> cloneState (const Ort::Value& state1, const Ort::Value& state2)
+    std::pair<Ort::Value, Ort::Value> cloneState (Ort::Value& state1, Ort::Value& state2)
     {
         std::vector<int64_t> stateShape = { 2, 1, 640 };
 
@@ -605,7 +607,7 @@ private:
             }
         }
 
-        return SafeUTF8::encode (decodeSpacePattern (joined));
+        return SafeUTF8::encode (decodeSpacePattern (joined).c_str());
     }
 
     std::string modelsDir;
