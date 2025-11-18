@@ -127,9 +127,67 @@ public:
     }
 
 private:
+    juce::File findParakeetExecutable()
+    {
+        // Try several locations for the parakeet transcription executable
+        juce::StringArray executableNames;
+
+        #ifdef _WIN32
+        executableNames.add ("parakeet-transcribe-windows.exe");
+        #elif __APPLE__
+        executableNames.add ("parakeet-transcribe-macos");
+        #else
+        executableNames.add ("parakeet-transcribe-linux");
+        #endif
+
+        // Also try generic name as fallback
+        executableNames.add ("parakeet-transcribe");
+
+        // Search locations
+        juce::Array<juce::File> searchPaths;
+
+        // 1. Plugin's Resources directory (macOS bundle structure)
+        auto pluginFile = juce::File::getSpecialLocation (juce::File::currentExecutableFile);
+        #ifdef __APPLE__
+        searchPaths.add (pluginFile.getParentDirectory().getParentDirectory().getChildFile ("Resources"));
+        #endif
+
+        // 2. Same directory as plugin
+        searchPaths.add (pluginFile.getParentDirectory());
+
+        // 3. Application data directory
+        searchPaths.add (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                        .getChildFile ("ReaSpeechLite"));
+
+        // Try each location with each executable name
+        for (const auto& searchPath : searchPaths)
+        {
+            for (const auto& exeName : executableNames)
+            {
+                auto exeFile = searchPath.getChildFile (exeName);
+                if (exeFile.existsAsFile())
+                {
+                    DBG ("Found Parakeet executable: " + exeFile.getFullPathName());
+                    return exeFile;
+                }
+            }
+        }
+
+        return {};
+    }
+
     bool checkPythonAvailable()
     {
-        // Try to find Python executable
+        // First, try to find the bundled executable
+        auto executable = findParakeetExecutable();
+        if (executable.existsAsFile())
+        {
+            parakeetExecutablePath = executable.getFullPathName();
+            DBG ("Using bundled Parakeet executable: " + parakeetExecutablePath);
+            return true;
+        }
+
+        // Fallback: Try to find Python executable (for development)
         juce::StringArray pythonCommands = { "python3", "python" };
 
         for (const auto& cmd : pythonCommands)
@@ -144,7 +202,7 @@ private:
             }
         }
 
-        DBG ("Python not found");
+        DBG ("Neither bundled executable nor Python found");
         return false;
     }
 
@@ -184,8 +242,17 @@ private:
 
     juce::String runPythonTranscription (const juce::String& audioFilePath, std::function<bool ()> isAborted)
     {
-        // Create Python script inline
-        juce::String pythonScript = R"(
+        juce::String command;
+
+        // Use bundled executable if available, otherwise fall back to Python
+        if (parakeetExecutablePath.isNotEmpty())
+        {
+            command = "\"" + parakeetExecutablePath + "\" \"" + audioFilePath + "\"";
+        }
+        else
+        {
+            // Fallback: Use Python with inline script (for development)
+            juce::String pythonScript = R"(
 import sys
 try:
     from onnx_asr import OnnxASR
@@ -213,26 +280,26 @@ except Exception as e:
     sys.exit(1)
 )";
 
-        // Save script to temp file
-        auto scriptFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-            .getChildFile ("reaspeech_transcribe.py");
+            // Save script to temp file
+            auto scriptFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                .getChildFile ("reaspeech_transcribe.py");
 
-        if (! scriptFile.replaceWithText (pythonScript))
-        {
-            DBG ("Failed to write Python script");
-            return {};
+            if (! scriptFile.replaceWithText (pythonScript))
+            {
+                DBG ("Failed to write Python script");
+                return {};
+            }
+
+            command = pythonCommand + " \"" + scriptFile.getFullPathName() + "\" \"" + audioFilePath + "\"";
         }
-
-        // Run Python script
-        juce::ChildProcess process;
-        juce::String command = pythonCommand + " \"" + scriptFile.getFullPathName() + "\" \"" + audioFilePath + "\"";
 
         DBG ("Running: " + command);
 
+        // Run the command
+        juce::ChildProcess process;
         if (! process.start (command))
         {
-            DBG ("Failed to start Python process");
-            scriptFile.deleteFile();
+            DBG ("Failed to start process");
             return {};
         }
 
@@ -244,7 +311,6 @@ except Exception as e:
             if (isAborted())
             {
                 process.kill();
-                scriptFile.deleteFile();
                 return {};
             }
             juce::Thread::sleep (100);
@@ -253,14 +319,13 @@ except Exception as e:
         progress.store (80);
 
         auto output = process.readAllProcessOutput();
-        scriptFile.deleteFile();
 
-        DBG ("Python output: " + output);
+        DBG ("Process output: " + output);
 
         // Check for errors
         if (output.startsWith ("ERROR:"))
         {
-            DBG ("Python error: " + output);
+            DBG ("Process error: " + output);
             return {};
         }
 
@@ -270,6 +335,7 @@ except Exception as e:
     std::string modelsDir;
     std::string lastModelName;
     juce::String pythonCommand = "python3";
+    juce::String parakeetExecutablePath;
     std::atomic<int> progress { 0 };
     std::atomic<double> processingTimeSeconds { 0.0 };
 };
