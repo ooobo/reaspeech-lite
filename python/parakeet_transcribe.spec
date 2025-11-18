@@ -3,12 +3,15 @@
 
 import sys
 import os
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 block_cipher = None
 
 # Collect all data files from onnx_asr (includes .onnx files, vocab files, etc.)
 onnx_asr_datas = collect_data_files('onnx_asr')
+
+# Collect numpy dynamic libraries to fix circular import issues
+numpy_binaries = collect_dynamic_libs('numpy')
 
 # Determine platform name
 if sys.platform.startswith('linux'):
@@ -23,14 +26,21 @@ else:
 a = Analysis(
     ['parakeet_transcribe.py'],
     pathex=[],
-    binaries=[],
+    binaries=numpy_binaries,
     datas=onnx_asr_datas,
     hiddenimports=[
         '_posixsubprocess',  # Required for subprocess on Unix
-        'multiprocessing.resource_tracker',  # Fix resource tracker issues
-        'multiprocessing.spawn',  # macOS multiprocessing support
         'pyexpat',  # Required for XML parsing
         'xml.parsers.expat',  # Required for plistlib on macOS
+        'numpy.core._multiarray_umath',  # Fix numpy circular import
+        'numpy.linalg._umath_linalg',  # Fix numpy linalg circular import
+        'numpy.random._common',
+        'numpy.random._bounded_integers',
+        'numpy.random._mt19937',
+        'numpy.random._philox',
+        'numpy.random._pcg64',
+        'numpy.random._sfc64',
+        'numpy.random._generator',
     ],
     hookspath=[],
     hooksconfig={
@@ -45,6 +55,8 @@ a = Analysis(
         'pkg_resources',  # Explicitly exclude pkg_resources
         'wheel',
         'pip',
+        'multiprocessing',  # Exclude multiprocessing to avoid spawn issues
+        'concurrent.futures',  # Not needed
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
