@@ -21,7 +21,7 @@ fi
 
 # Install dependencies
 echo "Installing Python dependencies..."
-pip install onnx-asr onnxruntime numpy librosa soundfile scipy scikit-learn numba resampy audioread decorator joblib lazy-loader msgpack pooch soxr
+pip install onnx-asr onnxruntime huggingface-hub
 
 # Determine platform
 PLATFORM=$(uname -s)
