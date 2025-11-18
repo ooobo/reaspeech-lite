@@ -36,3 +36,12 @@ build/
 *.exe
 *.out
 *.app
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.spec
+python/build/
+python/dist/
