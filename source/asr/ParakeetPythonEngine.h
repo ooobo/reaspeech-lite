@@ -5,6 +5,7 @@
 #include <vector>
 
 #include <juce_core/juce_core.h>
+#include <juce_audio_formats/juce_audio_formats.h>
 
 #include "../utils/SafeUTF8.h"
 #include "ASROptions.h"
@@ -21,7 +22,7 @@ public:
     }
 
     // Download the model - for Python version, we rely on onnx-asr to download models
-    bool downloadModel (const std::string& modelName, std::function<bool ()> isAborted)
+    bool downloadModel (const std::string& /*modelName*/, std::function<bool ()> /*isAborted*/)
     {
         // Check if Python and onnx-asr are available
         if (! checkPythonAvailable())
@@ -108,9 +109,9 @@ public:
             progress.store (100);
             return true;
         }
-        catch (const std::exception& ex)
+        catch (const std::exception& /*ex*/)
         {
-            DBG ("Error during Python transcription: " + juce::String (ex.what()));
+            DBG ("Error during Python transcription");
             return false;
         }
     }
@@ -151,43 +152,29 @@ private:
     {
         try
         {
+            // Create an AudioBuffer from the float data
+            juce::AudioBuffer<float> buffer (1, static_cast<int> (audioData.size()));
+            buffer.copyFrom (0, 0, audioData.data(), static_cast<int> (audioData.size()));
+
+            // Use JUCE's WavAudioFormat to write the file
+            juce::WavAudioFormat wavFormat;
             auto outputStream = file.createOutputStream();
+
             if (outputStream == nullptr)
                 return false;
 
-            // Write WAV header
-            const int numChannels = 1;
-            const int bitsPerSample = 16;
-            const int dataSize = static_cast<int> (audioData.size() * sizeof (int16_t));
-            const int fileSize = 36 + dataSize;
+            std::unique_ptr<juce::AudioFormatWriter> writer (
+                wavFormat.createWriterFor (outputStream.release(),
+                                          sampleRate,
+                                          1, // num channels
+                                          16, // bits per sample
+                                          {}, // metadata
+                                          0)); // quality option
 
-            // RIFF header
-            outputStream->write ("RIFF", 4);
-            outputStream->writeIntLittleEndian (fileSize);
-            outputStream->write ("WAVE", 4);
+            if (writer == nullptr)
+                return false;
 
-            // fmt chunk
-            outputStream->write ("fmt ", 4);
-            outputStream->writeIntLittleEndian (16); // chunk size
-            outputStream->writeShortLittleEndian (1); // PCM format
-            outputStream->writeShortLittleEndian (static_cast<short> (numChannels));
-            outputStream->writeIntLittleEndian (sampleRate);
-            outputStream->writeIntLittleEndian (sampleRate * numChannels * bitsPerSample / 8); // byte rate
-            outputStream->writeShortLittleEndian (static_cast<short> (numChannels * bitsPerSample / 8)); // block align
-            outputStream->writeShortLittleEndian (static_cast<short> (bitsPerSample));
-
-            // data chunk
-            outputStream->write ("data", 4);
-            outputStream->writeIntLittleEndian (dataSize);
-
-            // Write audio samples as 16-bit PCM
-            for (float sample : audioData)
-            {
-                int16_t intSample = static_cast<int16_t> (juce::jlimit (-32768.0f, 32767.0f, sample * 32767.0f));
-                outputStream->writeShortLittleEndian (intSample);
-            }
-
-            return true;
+            return writer->writeFromAudioSampleBuffer (buffer, 0, buffer.getNumSamples());
         }
         catch (...)
         {
