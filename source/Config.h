@@ -8,11 +8,10 @@
 struct Config
 {
     static inline const std::vector<std::pair<std::string, std::string>> models = {
-        { "parakeet-tdt-0.6b-v3", "Parakeet" },
-        { "small", "Whisper Small" },
-        { "medium", "Whisper Medium" },
-        { "large-v3", "Whisper Large" },
-        { "large-v3-turbo", "Whisper Turbo" }
+        { "small", "Small" },
+        { "medium", "Medium" },
+        { "large-v3", "Large" },
+        { "large-v3-turbo", "Turbo" }
     };
 
     static const juce::URL getModelURL (std::string modelNameIn)
@@ -24,15 +23,5 @@ struct Config
     {
         const auto tempDir = juce::File::getSpecialLocation (juce::File::SpecialLocationType::tempDirectory);
         return tempDir.getFullPathName().toStdString() + "/models/";
-    }
-
-    static bool isParakeetModel (const std::string& modelName)
-    {
-        return modelName.find ("parakeet") != std::string::npos;
-    }
-
-    static bool isWhisperModel (const std::string& modelName)
-    {
-        return !isParakeetModel (modelName);
     }
 };

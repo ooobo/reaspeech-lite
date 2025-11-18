@@ -135,6 +135,7 @@ struct ReaperProxy
         REAPER_CALL(GetMediaItem, MediaItem* (*) (ReaProject*, int), proj, itemidx)
     }
 
+    class PCM_source;
     void* hasGetMediaItemInfo_Value = nullptr;
     double GetMediaItemInfo_Value (MediaItem* item, const char* parmname)
     {
