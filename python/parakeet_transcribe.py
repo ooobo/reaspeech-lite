@@ -192,7 +192,10 @@ def main():
 
     try:
         # Load ASR model (with progress bars disabled)
-        asr = load_model(args.model)
+        # Use CPU provider only - CoreML has compatibility issues with Parakeet TDT models
+        print(f"DEBUG: Loading model '{args.model}'...", file=sys.stderr)
+        asr = load_model(args.model, providers=['CPUExecutionProvider'])
+        print(f"DEBUG: Model loaded successfully", file=sys.stderr)
 
         # Transcribe with chunking support
         sentences = transcribe_with_chunking(asr, str(audio_file), chunk_duration=args.chunk_duration)

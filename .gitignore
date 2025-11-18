@@ -44,3 +44,4 @@ __pycache__/
 *.pyd
 python/build/
 python/dist/
+python/venv/
