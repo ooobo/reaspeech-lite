@@ -182,9 +182,16 @@ public:
             sessionOptions.SetGraphOptimizationLevel (GraphOptimizationLevel::ORT_ENABLE_ALL);
 
             // Load the three model files
-            preprocessor = std::make_shared<Ort::Session> (*env, juce::String (modelDir + "/nemo128.onnx").toStdString().c_str(), sessionOptions);
-            encoder = std::make_shared<Ort::Session> (*env, juce::String (modelDir + "/encoder-model.onnx").toStdString().c_str(), sessionOptions);
-            decoderJoint = std::make_shared<Ort::Session> (*env, juce::String (modelDir + "/decoder_joint-model.onnx").toStdString().c_str(), sessionOptions);
+            // On Windows, ONNX Runtime requires wide strings
+            #ifdef _WIN32
+            preprocessor = std::make_shared<Ort::Session> (*env, juce::String (modelDir + "/nemo128.onnx").toWideCharPointer(), sessionOptions);
+            encoder = std::make_shared<Ort::Session> (*env, juce::String (modelDir + "/encoder-model.onnx").toWideCharPointer(), sessionOptions);
+            decoderJoint = std::make_shared<Ort::Session> (*env, juce::String (modelDir + "/decoder_joint-model.onnx").toWideCharPointer(), sessionOptions);
+            #else
+            preprocessor = std::make_shared<Ort::Session> (*env, (modelDir + "/nemo128.onnx").c_str(), sessionOptions);
+            encoder = std::make_shared<Ort::Session> (*env, (modelDir + "/encoder-model.onnx").c_str(), sessionOptions);
+            decoderJoint = std::make_shared<Ort::Session> (*env, (modelDir + "/decoder_joint-model.onnx").c_str(), sessionOptions);
+            #endif
 
             // Load vocabulary
             vocab = loadVocab (modelDir + "/vocab.txt");
