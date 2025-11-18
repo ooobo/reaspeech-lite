@@ -96,12 +96,50 @@ public:
 
             progress.store (90);
 
-            // Parse the result
-            ASRSegment segment;
-            segment.text = transcriptionResult;
-            segment.start = 0.0f;
-            segment.end = static_cast<float> (audioData.size()) / 16000.0f;
-            segments.push_back (segment);
+            // Parse the result - split by lines (one sentence per line)
+            juce::StringArray lines;
+            lines.addLines (transcriptionResult);
+
+            // Create segments from sentences
+            // For now, distribute them evenly across the audio duration
+            // (Parakeet doesn't provide timestamps, so this is an approximation)
+            float totalDuration = static_cast<float> (audioData.size()) / 16000.0f;
+            int numLines = 0;
+
+            // Count non-empty lines
+            for (const auto& line : lines)
+                if (line.trim().isNotEmpty())
+                    numLines++;
+
+            if (numLines > 0)
+            {
+                float segmentDuration = totalDuration / numLines;
+                float currentTime = 0.0f;
+
+                for (const auto& line : lines)
+                {
+                    auto trimmedLine = line.trim();
+                    if (trimmedLine.isEmpty())
+                        continue;
+
+                    ASRSegment segment;
+                    segment.text = trimmedLine;
+                    segment.start = currentTime;
+                    segment.end = currentTime + segmentDuration;
+                    segments.push_back (segment);
+
+                    currentTime += segmentDuration;
+                }
+            }
+            else
+            {
+                // Fallback: single segment with all text
+                ASRSegment segment;
+                segment.text = transcriptionResult;
+                segment.start = 0.0f;
+                segment.end = totalDuration;
+                segments.push_back (segment);
+            }
 
             auto endTime = juce::Time::getMillisecondCounterHiRes();
             processingTimeSeconds.store ((endTime - startTime) / 1000.0);
