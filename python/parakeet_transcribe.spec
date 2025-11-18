@@ -52,11 +52,9 @@ a = Analysis(
     excludes=[
         'setuptools',
         'distutils',
-        'pkg_resources',  # Explicitly exclude pkg_resources
+        'pkg_resources',
         'wheel',
         'pip',
-        'multiprocessing',  # Exclude multiprocessing to avoid spawn issues
-        'concurrent.futures',  # Not needed
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
