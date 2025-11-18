@@ -52,14 +52,16 @@ a = Analysis(
 )
 
 # Collect all from onnx-asr
-a.datas += collect_all('onnx_asr')[0]
-a.binaries += collect_all('onnx_asr')[1]
-a.hiddenimports += collect_all('onnx_asr')[2]
+onnx_asr_datas, onnx_asr_binaries, onnx_asr_hiddenimports = collect_all('onnx_asr')
+a.datas += onnx_asr_datas
+a.binaries += onnx_asr_binaries
+a.hiddenimports += onnx_asr_hiddenimports
 
 # Collect all from onnxruntime
-a.datas += collect_all('onnxruntime')[0]
-a.binaries += collect_all('onnxruntime')[1]
-a.hiddenimports += collect_all('onnxruntime')[2]
+onnxruntime_datas, onnxruntime_binaries, onnxruntime_hiddenimports = collect_all('onnxruntime')
+a.datas += onnxruntime_datas
+a.binaries += onnxruntime_binaries
+a.hiddenimports += onnxruntime_hiddenimports
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
