@@ -11,7 +11,7 @@
 
 #include "../Config.h"
 #include "../asr/ASREngine.h"
-#include "../asr/ParakeetEngine.h"
+#include "../asr/ParakeetPythonEngine.h"
 #include "../asr/ASROptions.h"
 #include "../asr/ASRThreadPoolJob.h"
 #include "../asr/WhisperLanguages.h"
@@ -31,8 +31,8 @@ public:
         audioProcessor (audioProcessorIn)
     {
         asrEngine = std::make_unique<ASREngine> (Config::getModelsDir());
-        // Don't create ParakeetEngine here - it will be created lazily when first needed
-        // This prevents ONNX Runtime from being loaded at plugin startup
+        // Don't create ParakeetPythonEngine here - it will be created lazily when first needed
+        // This prevents Python subprocess initialization at plugin startup
     }
 
     // Timeout in milliseconds for aborting transcription jobs
@@ -433,10 +433,10 @@ public:
             // Determine which engine to use based on model name
             bool useParakeet = Config::isParakeetModel (options->modelName.toStdString());
 
-            // Lazy initialization of ParakeetEngine - only create when first needed
+            // Lazy initialization of ParakeetPythonEngine - only create when first needed
             if (useParakeet && parakeetEngine == nullptr)
             {
-                parakeetEngine = std::make_unique<ParakeetEngine> (Config::getModelsDir());
+                parakeetEngine = std::make_unique<ParakeetPythonEngine> (Config::getModelsDir());
             }
 
             juce::ThreadPoolJob* job = nullptr;
@@ -500,7 +500,7 @@ public:
 
             if (useParakeet)
             {
-                job = new ASRThreadPoolJob<ParakeetEngine> (
+                job = new ASRThreadPoolJob<ParakeetPythonEngine> (
                     *parakeetEngine,
                     audioSource,
                     std::move(options),
@@ -812,7 +812,7 @@ private:
     ReaperProxy& rpr { audioProcessor.reaperProxy };
 
     std::unique_ptr<ASREngine> asrEngine;
-    std::unique_ptr<ParakeetEngine> parakeetEngine;
+    std::unique_ptr<ParakeetPythonEngine> parakeetEngine;
     std::atomic<ASRThreadPoolJobStatus> asrStatus;
     std::atomic<bool> debugMode { false };
     juce::ThreadPool threadPool { 1 };

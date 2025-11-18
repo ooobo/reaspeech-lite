@@ -11,13 +11,6 @@ include(PamplejuceVersion)
 # Configures universal binaries and decides which version of macOS to support
 include(PamplejuceMacOS)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "" FORCE)
-# Temporarily disable universal binaries due to ONNX Runtime architecture issues
-# We'll revisit this once we have a better ONNX Runtime integration strategy
-if(APPLE AND DEFINED CMAKE_OSX_ARCHITECTURES)
-    # Build for native architecture only
-    unset(CMAKE_OSX_ARCHITECTURES CACHE)
-    message(STATUS "Building for native architecture only (ONNX Runtime limitation)")
-endif()
 
 include(JUCEDefaults)
 
@@ -43,72 +36,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Add whisper.cpp
 add_subdirectory(whisper.cpp)
-
-# Add ONNX Runtime
-find_package(onnxruntime QUIET)
-if(NOT onnxruntime_FOUND)
-    message(STATUS "ONNX Runtime not found via find_package, trying FetchContent...")
-    include(FetchContent)
-
-    set(ONNXRUNTIME_VERSION "1.20.1")
-
-    # Determine OS and architecture for the correct ONNX Runtime package
-    if(WIN32)
-        set(ONNX_PACKAGE_NAME "onnxruntime-win-x64-${ONNXRUNTIME_VERSION}")
-        set(ONNX_ARCHIVE_EXT "zip")
-    elseif(APPLE)
-        if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
-            set(ONNX_PACKAGE_NAME "onnxruntime-osx-arm64-${ONNXRUNTIME_VERSION}")
-        else()
-            set(ONNX_PACKAGE_NAME "onnxruntime-osx-x86_64-${ONNXRUNTIME_VERSION}")
-        endif()
-        set(ONNX_ARCHIVE_EXT "tgz")
-    else()
-        set(ONNX_PACKAGE_NAME "onnxruntime-linux-x64-${ONNXRUNTIME_VERSION}")
-        set(ONNX_ARCHIVE_EXT "tgz")
-    endif()
-
-    set(ONNXRUNTIME_URL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ONNX_PACKAGE_NAME}.${ONNX_ARCHIVE_EXT}")
-    message(STATUS "Downloading ONNX Runtime from: ${ONNXRUNTIME_URL}")
-
-    FetchContent_Declare(
-        onnxruntime
-        URL ${ONNXRUNTIME_URL}
-    )
-
-    FetchContent_MakeAvailable(onnxruntime)
-
-    # Set include and library paths
-    set(ONNXRUNTIME_INCLUDE_DIRS "${onnxruntime_SOURCE_DIR}/include")
-    set(ONNXRUNTIME_LIB_DIR "${onnxruntime_SOURCE_DIR}/lib")
-
-    # Find the ONNX Runtime library
-    if(WIN32)
-        set(ONNXRUNTIME_LIB "${ONNXRUNTIME_LIB_DIR}/onnxruntime.lib")
-        set(ONNXRUNTIME_DLL "${ONNXRUNTIME_LIB_DIR}/onnxruntime.dll")
-    elseif(APPLE)
-        set(ONNXRUNTIME_LIB "${ONNXRUNTIME_LIB_DIR}/libonnxruntime.dylib")
-    else()
-        set(ONNXRUNTIME_LIB "${ONNXRUNTIME_LIB_DIR}/libonnxruntime.so")
-    endif()
-
-    # Create imported target
-    add_library(onnxruntime SHARED IMPORTED)
-    set_target_properties(onnxruntime PROPERTIES
-        IMPORTED_LOCATION "${ONNXRUNTIME_LIB}"
-        INTERFACE_INCLUDE_DIRECTORIES "${ONNXRUNTIME_INCLUDE_DIRS}"
-    )
-
-    if(WIN32)
-        set_target_properties(onnxruntime PROPERTIES
-            IMPORTED_IMPLIB "${ONNXRUNTIME_LIB}"
-        )
-        # Copy DLL to output directory for Windows
-        if(EXISTS "${ONNXRUNTIME_DLL}")
-            file(COPY "${ONNXRUNTIME_DLL}" DESTINATION "${CMAKE_BINARY_DIR}")
-        endif()
-    endif()
-endif()
 
 # See `docs/CMake API.md` in the JUCE repo for all config options
 juce_add_plugin("${PROJECT_NAME}"
@@ -173,7 +100,6 @@ target_link_libraries(SharedCode
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags
     whisper
-    onnxruntime
 )
 
 # Link the JUCE plugin targets with our SharedCode target
