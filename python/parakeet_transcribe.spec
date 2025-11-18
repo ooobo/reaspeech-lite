@@ -3,8 +3,12 @@
 
 import sys
 import os
+from PyInstaller.utils.hooks import collect_data_files
 
 block_cipher = None
+
+# Collect all data files from onnx_asr (includes .onnx files, vocab files, etc.)
+onnx_asr_datas = collect_data_files('onnx_asr')
 
 # Determine platform name
 if sys.platform.startswith('linux'):
@@ -20,7 +24,7 @@ a = Analysis(
     ['parakeet_transcribe.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=onnx_asr_datas,
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
