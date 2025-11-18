@@ -6,17 +6,12 @@ Standalone executable for ASR transcription using onnx-asr
 import sys
 import os
 
-# Debug: Print raw sys.argv to stderr to diagnose argument passing issues
-print(f"DEBUG: sys.argv = {sys.argv}", file=sys.stderr)
-
 # Check if this is a multiprocessing spawn invocation
 # On macOS, multiprocessing uses spawn mode which re-executes the script
 # We need to detect this and allow it to proceed without our main() logic
 if '-c' in sys.argv:
     # This is a multiprocessing spawn - let it execute as-is
     # Don't import our modules or run main()
-    print("DEBUG: Detected multiprocessing spawn, executing code and exiting", file=sys.stderr)
-    # Execute the code that was passed via -c
     code_index = sys.argv.index('-c') + 1
     if code_index < len(sys.argv):
         exec(sys.argv[code_index])
@@ -193,9 +188,7 @@ def main():
     try:
         # Load ASR model (with progress bars disabled)
         # Use CPU provider only - CoreML has compatibility issues with Parakeet TDT models
-        print(f"DEBUG: Loading model '{args.model}'...", file=sys.stderr)
         asr = load_model(args.model, providers=['CPUExecutionProvider'])
-        print(f"DEBUG: Model loaded successfully", file=sys.stderr)
 
         # Transcribe with chunking support
         sentences = transcribe_with_chunking(asr, str(audio_file), chunk_duration=args.chunk_duration)
