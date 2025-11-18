@@ -96,44 +96,38 @@ public:
 
             progress.store (90);
 
-            // Parse the result - split by lines (one sentence per line)
+            // Parse the result - each line is a JSON object with {text, start, end}
             juce::StringArray lines;
             lines.addLines (transcriptionResult);
 
-            // Create segments from sentences
-            // For now, distribute them evenly across the audio duration
-            // (Parakeet doesn't provide timestamps, so this is an approximation)
-            float totalDuration = static_cast<float> (audioData.size()) / 16000.0f;
-            int numLines = 0;
-
-            // Count non-empty lines
             for (const auto& line : lines)
-                if (line.trim().isNotEmpty())
-                    numLines++;
-
-            if (numLines > 0)
             {
-                float segmentDuration = totalDuration / numLines;
-                float currentTime = 0.0f;
+                auto trimmedLine = line.trim();
+                if (trimmedLine.isEmpty())
+                    continue;
 
-                for (const auto& line : lines)
-                {
-                    auto trimmedLine = line.trim();
-                    if (trimmedLine.isEmpty())
-                        continue;
+                // Parse JSON
+                auto json = juce::JSON::parse (trimmedLine);
+                if (! json.isObject())
+                    continue;
 
-                    ASRSegment segment;
-                    segment.text = trimmedLine;
-                    segment.start = currentTime;
-                    segment.end = currentTime + segmentDuration;
+                auto jsonObj = json.getDynamicObject();
+                if (jsonObj == nullptr)
+                    continue;
+
+                ASRSegment segment;
+                segment.text = jsonObj->getProperty ("text", "").toString();
+                segment.start = static_cast<float> (jsonObj->getProperty ("start", 0.0));
+                segment.end = static_cast<float> (jsonObj->getProperty ("end", 0.0));
+
+                if (! segment.text.isEmpty())
                     segments.push_back (segment);
-
-                    currentTime += segmentDuration;
-                }
             }
-            else
+
+            // Fallback if no segments were parsed
+            if (segments.empty())
             {
-                // Fallback: single segment with all text
+                float totalDuration = static_cast<float> (audioData.size()) / 16000.0f;
                 ASRSegment segment;
                 segment.text = transcriptionResult;
                 segment.start = 0.0f;

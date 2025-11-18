@@ -19,6 +19,7 @@ if '-c' in sys.argv:
 
 import argparse
 import re
+import json
 from pathlib import Path
 import numpy as np
 
@@ -87,39 +88,71 @@ def chunk_audio(audio, chunk_duration=120.0, overlap_duration=15.0, sample_rate=
 
     return chunks
 
-def split_into_sentences(text):
-    """Split text into sentences based on punctuation."""
-    if not text:
+def tokens_to_sentences(tokens, timestamps):
+    """
+    Group tokens into sentences based on punctuation.
+
+    Args:
+        tokens: List of token strings
+        timestamps: List of timestamps (one per token, representing token start time)
+
+    Returns:
+        List of dicts with {text, start, end}
+    """
+    if not tokens or not timestamps:
         return []
 
-    # Split on sentence-ending punctuation followed by space or end of string
-    # Keep the punctuation with the sentence
-    sentences = re.split(r'([.!?]+(?:\s+|$))', text)
+    sentences = []
+    current_tokens = []
+    current_start = timestamps[0] if timestamps else 0.0
 
-    # Recombine sentences with their punctuation
-    result = []
-    for i in range(0, len(sentences) - 1, 2):
-        sentence = (sentences[i] + (sentences[i+1] if i+1 < len(sentences) else '')).strip()
-        if sentence:
-            result.append(sentence)
+    # Sentence-ending punctuation
+    sentence_end_puncts = {'.', '!', '?'}
 
-    # Handle any remaining text without punctuation
-    if len(sentences) % 2 == 1 and sentences[-1].strip():
-        result.append(sentences[-1].strip())
+    for i, (token, ts) in enumerate(zip(tokens, timestamps)):
+        current_tokens.append(token)
 
-    return result if result else [text.strip()]
+        # Check if this token ends a sentence
+        # Look for sentence-ending punctuation at the end of the token
+        is_sentence_end = any(token.strip().endswith(p) for p in sentence_end_puncts)
+
+        # Also end sentence at the last token
+        is_last_token = (i == len(tokens) - 1)
+
+        if is_sentence_end or is_last_token:
+            # Calculate end time: use next token's timestamp, or estimate from current
+            if i + 1 < len(timestamps):
+                current_end = timestamps[i + 1]
+            else:
+                # For last token, estimate duration (average 0.16s per token)
+                current_end = ts + 0.16
+
+            text = ''.join(current_tokens).strip()
+            if text:  # Only add non-empty sentences
+                sentences.append({
+                    'text': text,
+                    'start': current_start,
+                    'end': current_end
+                })
+
+            # Reset for next sentence
+            current_tokens = []
+            if i + 1 < len(timestamps):
+                current_start = timestamps[i + 1]
+
+    return sentences
 
 def transcribe_with_chunking(asr, audio_path, chunk_duration=120.0):
     """
-    Transcribe audio file with chunking for long files.
+    Transcribe audio file with chunking for long files, preserving timestamps.
 
     Args:
-        asr: ASR model instance
+        asr: ASR model instance (with timestamps)
         audio_path: Path to audio file
         chunk_duration: Duration of each chunk in seconds
 
     Returns:
-        List of sentence strings
+        List of sentence dicts with {text, start, end}
     """
     # Load audio
     audio = load_audio(audio_path)
@@ -128,48 +161,59 @@ def transcribe_with_chunking(asr, audio_path, chunk_duration=120.0):
     # If audio is short, process directly without chunking
     if duration <= chunk_duration:
         result = asr.recognize(audio_path)
-        text = extract_text(result)
-        return split_into_sentences(text)
+        if hasattr(result, 'tokens') and hasattr(result, 'timestamps'):
+            return tokens_to_sentences(result.tokens, result.timestamps)
+        else:
+            # Fallback: no timestamps available
+            text = result.text if hasattr(result, 'text') else str(result)
+            return [{'text': text, 'start': 0.0, 'end': duration}]
 
     # Process in chunks
     print(f"Processing {duration:.1f}s audio in chunks of {chunk_duration}s...", file=sys.stderr)
     chunks = chunk_audio(audio, chunk_duration=chunk_duration, overlap_duration=15.0)
 
-    all_sentences = []
-    for i, (chunk, start_time, end_time) in enumerate(chunks):
-        print(f"Processing chunk {i+1}/{len(chunks)} ({start_time:.1f}s - {end_time:.1f}s)...", file=sys.stderr)
+    all_tokens = []
+    all_timestamps = []
+
+    for i, (chunk, chunk_start, chunk_end) in enumerate(chunks):
+        print(f"Processing chunk {i+1}/{len(chunks)} ({chunk_start:.1f}s - {chunk_end:.1f}s)...", file=sys.stderr)
 
         # Transcribe chunk
         result = asr.recognize(chunk, sample_rate=16000)
-        text = extract_text(result)
 
-        if text:
-            sentences = split_into_sentences(text)
+        if hasattr(result, 'tokens') and hasattr(result, 'timestamps'):
+            # Adjust timestamps by chunk offset
+            adjusted_timestamps = [ts + chunk_start for ts in result.timestamps]
 
-            # For overlapping regions, trim the last sentence of previous chunks
-            # to avoid duplication (except for the last chunk)
-            if i < len(chunks) - 1 and sentences:
-                # Keep all but the last sentence to avoid overlap duplication
-                all_sentences.extend(sentences[:-1])
+            # For overlapping chunks, handle the overlap region
+            # Keep tokens from overlap only if this is the last chunk or if tokens don't overlap
+            overlap_time = 15.0  # seconds
+
+            if i > 0 and all_timestamps:
+                # Remove tokens from current chunk that fall in the overlap region
+                # (keep tokens from the previous chunk for the overlap)
+                last_prev_time = all_timestamps[-1]
+                overlap_start = chunk_start
+                overlap_end = chunk_start + overlap_time
+
+                # Filter out tokens in the overlap region from current chunk
+                filtered_tokens = []
+                filtered_timestamps = []
+                for token, ts in zip(result.tokens, adjusted_timestamps):
+                    # Keep token if it's after the overlap or if there's no overlap
+                    if ts >= overlap_end or ts > last_prev_time:
+                        filtered_tokens.append(token)
+                        filtered_timestamps.append(ts)
+
+                all_tokens.extend(filtered_tokens)
+                all_timestamps.extend(filtered_timestamps)
             else:
-                # Last chunk: keep all sentences
-                all_sentences.extend(sentences)
+                # First chunk: keep all tokens
+                all_tokens.extend(result.tokens)
+                all_timestamps.extend(adjusted_timestamps)
 
-    return all_sentences
-
-def extract_text(result):
-    """Extract text from recognition result."""
-    if not result:
-        return ""
-
-    if isinstance(result, dict) and 'text' in result:
-        return result['text']
-    elif isinstance(result, str):
-        return result
-    elif isinstance(result, list):
-        return ' '.join(str(r) if isinstance(r, str) else r.get('text', '') for r in result)
-    else:
-        return str(result)
+    # Convert tokens to sentences
+    return tokens_to_sentences(all_tokens, all_timestamps)
 
 def main():
     parser = argparse.ArgumentParser(description='Transcribe audio using Parakeet TDT')
@@ -188,14 +232,15 @@ def main():
     try:
         # Load ASR model (with progress bars disabled)
         # Use CPU provider only - CoreML has compatibility issues with Parakeet TDT models
-        asr = load_model(args.model, providers=['CPUExecutionProvider'])
+        # Enable timestamps for accurate segment timing
+        asr = load_model(args.model, providers=['CPUExecutionProvider']).with_timestamps()
 
         # Transcribe with chunking support
         sentences = transcribe_with_chunking(asr, str(audio_file), chunk_duration=args.chunk_duration)
 
-        # Output one sentence per line
-        for sentence in sentences:
-            print(sentence)
+        # Output as JSON (one object per line for each segment)
+        for segment in sentences:
+            print(json.dumps(segment))
 
     except Exception as e:
         print(f"ERROR: Transcription failed: {str(e)}", file=sys.stderr)
