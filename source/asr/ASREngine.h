@@ -29,12 +29,6 @@ public:
         downloadTask.reset();
     }
 
-    // Get processing time in seconds from last transcription
-    double getProcessingTime() const
-    {
-        return processingTimeSeconds.load();
-    }
-
     // Download the model if needed. Returns true if successful or already downloaded.
     bool downloadModel (const std::string& modelName, std::function<bool ()> isAborted)
     {
@@ -248,6 +242,12 @@ public:
     int getProgress() const
     {
         return progress.load();
+    }
+
+    // Get processing time in seconds from last transcription
+    double getProcessingTime() const
+    {
+        return processingTimeSeconds.load();
     }
 
 private:

@@ -33,18 +33,17 @@ struct ASRThreadPoolJobResult
     std::vector<ASRSegment> segments;
 };
 
-template<typename EngineType>
 class ASRThreadPoolJob final : public juce::ThreadPoolJob
 {
 public:
     ASRThreadPoolJob(
-        EngineType& engineIn,
+        ASREngine& asrEngineIn,
         juce::ARAAudioSource* audioSourceIn,
         std::unique_ptr<ASROptions> optionsIn,
         std::function<void (ASRThreadPoolJobStatus)> onStatus,
         std::function<void (const ASRThreadPoolJobResult&)> onComplete
     ) : ThreadPoolJob ("ASR Threadpool Job"),
-        engine (engineIn),
+        asrEngine (asrEngineIn),
         audioSource (audioSourceIn),
         options (std::move (optionsIn)),
         onStatusCallback (onStatus),
@@ -72,7 +71,7 @@ public:
         DBG ("Downloading model");
         onStatusCallback (ASRThreadPoolJobStatus::downloadingModel);
 
-        if (! engine.downloadModel (options->modelName.toStdString(), isAborted))
+        if (! asrEngine.downloadModel (options->modelName.toStdString(), isAborted))
         {
             onStatusCallback (ASRThreadPoolJobStatus::failed);
             onCompleteCallback ({ true, "Failed to download model", {} });
@@ -85,7 +84,7 @@ public:
         DBG ("Loading model");
         onStatusCallback (ASRThreadPoolJobStatus::loadingModel);
 
-        if (! engine.loadModel (options->modelName.toStdString()))
+        if (! asrEngine.loadModel (options->modelName.toStdString()))
         {
             onStatusCallback (ASRThreadPoolJobStatus::failed);
             onCompleteCallback ({ true, "Failed to load model", {} });
@@ -101,7 +100,7 @@ public:
         DBG ("ASR options: " + options->toJSON());
 
         std::vector<ASRSegment> segments;
-        bool result = engine.transcribe (audioData, *options, segments, isAborted);
+        bool result = asrEngine.transcribe (audioData, *options, segments, isAborted);
 
         if (aborting())
             return jobHasFinished;
@@ -140,7 +139,7 @@ private:
         return false;
     }
 
-    EngineType& engine;
+    ASREngine& asrEngine;
     juce::ARAAudioSource* audioSource;
     std::unique_ptr<ASROptions> options;
     std::function<void (ASRThreadPoolJobStatus)> onStatusCallback;
