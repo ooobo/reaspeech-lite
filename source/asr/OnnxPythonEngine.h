@@ -50,6 +50,9 @@ public:
             processingTimeSeconds.store ((endTime - startTime) / 1000.0);
         };
 
+        // Clear any existing segments from previous transcription
+        segments.clear();
+
         try
         {
             auto tempFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
@@ -265,8 +268,9 @@ except Exception as e:
     sys.exit(1)
 )";
 
+            // Save script to temp file with random name to avoid conflicts
             auto scriptFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                .getChildFile ("reaspeech_transcribe.py");
+                .getChildFile ("reaspeech_transcribe_" + juce::String (juce::Random::getSystemRandom().nextInt()) + ".py");
 
             if (! scriptFile.replaceWithText (pythonScript))
                 return {};
@@ -282,6 +286,8 @@ except Exception as e:
 
         progress.store (50);
 
+        // Wait for process to complete (with periodic abort checks)
+        juce::String output;
         while (process.isRunning())
         {
             if (isAborted())
@@ -294,7 +300,12 @@ except Exception as e:
 
         progress.store (80);
 
-        auto output = process.readAllProcessOutput();
+        // Read all output after process finishes
+        output = process.readAllProcessOutput();
+
+        DBG ("Process output: " + output);
+
+        // Check for errors
         if (output.startsWith ("ERROR:"))
             return {};
 

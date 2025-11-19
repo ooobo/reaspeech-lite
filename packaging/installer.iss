@@ -36,6 +36,7 @@ Type: filesandordirs; Name: "{commoncf64}\VST3\{#ProductName}Data"
 ; MSVC adds a .ilk when building the plugin. Let's not include that.
 [Files]
 Source: "..\Builds\{#ProjectName}_artefacts\Release\VST3\{#ProductName}.vst3\*"; DestDir: "{commoncf64}\VST3\{#ProductName}.vst3\"; Excludes: *.ilk; Flags: ignoreversion recursesubdirs; Components: vst3
+Source: "..\python\dist\parakeet-transcribe-windows.exe"; DestDir: "{commoncf64}\VST3\{#ProductName}.vst3\Contents\x86_64-win"; Flags: ignoreversion; Components: vst3
 
 [Icons]
 Name: "{autoprograms}\Uninstall {#ProductName}"; Filename: "{uninstallexe}"
