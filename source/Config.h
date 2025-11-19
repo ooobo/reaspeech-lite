@@ -8,11 +8,11 @@
 struct Config
 {
     static inline const std::vector<std::pair<std::string, std::string>> models = {
-        { "small", "Small" },
-        { "medium", "Medium" },
-        { "large-v3", "Large" },
-        { "large-v3-turbo", "Turbo" },
-        { "tdt-0.6b-v2", "Parakeet TDT" }
+        { "tdt-0.6b-v2", "Parakeet TDT" },
+        { "small", "Whisper Small" },
+        { "medium", "Whisper Medium" },
+        { "large-v3", "Whisper Large" },
+        { "large-v3-turbo", "Whisper Turbo" }
     };
 
     static const juce::URL getModelURL (std::string modelNameIn)

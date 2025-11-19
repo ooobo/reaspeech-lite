@@ -224,6 +224,15 @@ jobs:
         if: env.SHOULD_SKIP != 'true'
         run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }} --parallel 4
 
+      - name: Copy Parakeet executable to VST3 bundle (macOS)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'macOS'
+        run: |
+          VST3_BUNDLE="${{ env.BUILD_DIR }}/${{ env.PROJECT_NAME }}_artefacts/${{ env.BUILD_TYPE }}/VST3/ReaSpeechLite.vst3"
+          mkdir -p "${VST3_BUNDLE}/Contents/Resources"
+          cp python/dist/parakeet-transcribe-macos "${VST3_BUNDLE}/Contents/Resources/"
+          chmod +x "${VST3_BUNDLE}/Contents/Resources/parakeet-transcribe-macos"
+          echo "Copied parakeet-transcribe-macos to ${VST3_BUNDLE}/Contents/Resources/"
+
       - name: Test & Benchmarks
         if: env.SHOULD_SKIP != 'true'
         working-directory: ${{ env.BUILD_DIR }}
