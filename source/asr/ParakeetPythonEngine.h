@@ -191,20 +191,25 @@ private:
         searchPaths.add (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
                         .getChildFile ("ReaSpeechLite"));
 
+        DBG ("Searching for Parakeet executable in " + juce::String (searchPaths.size()) + " locations:");
+
         // Try each location with each executable name
         for (const auto& searchPath : searchPaths)
         {
+            DBG ("  Checking: " + searchPath.getFullPathName());
             for (const auto& exeName : executableNames)
             {
                 auto exeFile = searchPath.getChildFile (exeName);
+                DBG ("    Looking for: " + exeFile.getFullPathName());
                 if (exeFile.existsAsFile())
                 {
-                    DBG ("Found Parakeet executable: " + exeFile.getFullPathName());
+                    DBG ("    ✓ Found Parakeet executable: " + exeFile.getFullPathName());
                     return exeFile;
                 }
             }
         }
 
+        DBG ("ERROR: Parakeet executable not found in any search location");
         return {};
     }
 
