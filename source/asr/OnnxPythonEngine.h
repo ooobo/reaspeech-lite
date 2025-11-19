@@ -11,12 +11,12 @@
 #include "ASROptions.h"
 #include "ASRSegment.h"
 
-class ParakeetPythonEngine
+class OnnxPythonEngine
 {
 public:
-    ParakeetPythonEngine (const std::string& modelsDirIn) : modelsDir (modelsDirIn) {}
+    OnnxPythonEngine (const std::string& modelsDirIn) : modelsDir (modelsDirIn) {}
 
-    ~ParakeetPythonEngine() = default;
+    ~OnnxPythonEngine() = default;
 
     bool downloadModel (const std::string& /*modelName*/, std::function<bool ()> /*isAborted*/)
     {
@@ -138,7 +138,7 @@ public:
     }
 
 private:
-    juce::File findParakeetExecutable()
+    juce::File findOnnxExecutable()
     {
         juce::StringArray executableNames;
 
@@ -178,10 +178,10 @@ private:
 
     bool checkPythonAvailable()
     {
-        auto executable = findParakeetExecutable();
+        auto executable = findOnnxExecutable();
         if (executable.existsAsFile())
         {
-            parakeetExecutablePath = executable.getFullPathName();
+            onnxExecutablePath = executable.getFullPathName();
             return true;
         }
 
@@ -235,9 +235,9 @@ private:
         if (modelForPython.startsWith ("onnx-"))
             modelForPython = modelForPython.substring (5);
 
-        if (parakeetExecutablePath.isNotEmpty())
+        if (onnxExecutablePath.isNotEmpty())
         {
-            args.add (parakeetExecutablePath);
+            args.add (onnxExecutablePath);
             args.add (audioFilePath);
             args.add ("--model");
             args.add (modelForPython);
@@ -304,7 +304,7 @@ except Exception as e:
     std::string modelsDir;
     std::string lastModelName;
     juce::String pythonCommand = "python3";
-    juce::String parakeetExecutablePath;
+    juce::String onnxExecutablePath;
     std::atomic<int> progress { 0 };
     std::atomic<double> processingTimeSeconds { 0.0 };
 };

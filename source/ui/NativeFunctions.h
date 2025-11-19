@@ -11,7 +11,7 @@
 
 #include "../Config.h"
 #include "../asr/ASREngine.h"
-#include "../asr/ParakeetPythonEngine.h"
+#include "../asr/OnnxPythonEngine.h"
 #include "../asr/ASROptions.h"
 #include "../asr/ASRThreadPoolJob.h"
 #include "../asr/WhisperLanguages.h"
@@ -243,8 +243,8 @@ public:
                 status = "Downloading";
                 if (asrEngine != nullptr)
                     progress = asrEngine->getProgress();
-                if (parakeetEngine != nullptr)
-                    progress = parakeetEngine->getProgress();
+                if (onnxEngine != nullptr)
+                    progress = onnxEngine->getProgress();
                 break;
             case ASRThreadPoolJobStatus::loadingModel:
                 status = "Loading Model";
@@ -253,8 +253,8 @@ public:
                 status = "Transcribing";
                 if (asrEngine != nullptr)
                     progress = asrEngine->getProgress();
-                if (parakeetEngine != nullptr)
-                    progress = parakeetEngine->getProgress();
+                if (onnxEngine != nullptr)
+                    progress = onnxEngine->getProgress();
                 break;
             case ASRThreadPoolJobStatus::ready:
             case ASRThreadPoolJobStatus::aborted:
@@ -431,9 +431,9 @@ public:
             // Determine which engine to use based on model name
             bool useOnnx = Config::isOnnxModel (options->modelName.toStdString());
 
-            if (useOnnx && parakeetEngine == nullptr)
+            if (useOnnx && onnxEngine == nullptr)
             {
-                parakeetEngine = std::make_unique<ParakeetPythonEngine> (Config::getModelsDir());
+                onnxEngine = std::make_unique<OnnxPythonEngine> (Config::getModelsDir());
             }
 
             juce::ThreadPoolJob* job = nullptr;
@@ -497,8 +497,8 @@ public:
 
             if (useOnnx)
             {
-                job = new ASRThreadPoolJob<ParakeetPythonEngine> (
-                    *parakeetEngine,
+                job = new ASRThreadPoolJob<OnnxPythonEngine> (
+                    *onnxEngine,
                     audioSource,
                     std::move(options),
                     statusCallback,
@@ -609,9 +609,9 @@ public:
             complete (juce::var (asrEngine->getProcessingTime()));
             return;
         }
-        if (parakeetEngine != nullptr)
+        if (onnxEngine != nullptr)
         {
-            complete (juce::var (parakeetEngine->getProcessingTime()));
+            complete (juce::var (onnxEngine->getProcessingTime()));
             return;
         }
         complete (juce::var (0.0));
@@ -809,7 +809,7 @@ private:
     ReaperProxy& rpr { audioProcessor.reaperProxy };
 
     std::unique_ptr<ASREngine> asrEngine;
-    std::unique_ptr<ParakeetPythonEngine> parakeetEngine;
+    std::unique_ptr<OnnxPythonEngine> onnxEngine;
     std::atomic<ASRThreadPoolJobStatus> asrStatus;
     std::atomic<bool> debugMode { false };
     juce::ThreadPool threadPool { 1 };
