@@ -37,7 +37,7 @@ describe('App', () => {
     it('constructs App', () => {
       const app = new App();
 
-      expect(app.state.modelName).toBe('onnx-parakeet-tdt-0.6b-v2');
+      expect(app.state.modelName).toBe('onnx-nemo-parakeet-tdt-0.6b-v2');
       expect(app.state.language).toBe('');
       expect(app.state.translate).toBe(false);
     });
