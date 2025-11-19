@@ -31,8 +31,6 @@ public:
         audioProcessor (audioProcessorIn)
     {
         asrEngine = std::make_unique<ASREngine> (Config::getModelsDir());
-        // Don't create ParakeetPythonEngine here - it will be created lazily when first needed
-        // This prevents Python subprocess initialization at plugin startup
     }
 
     // Timeout in milliseconds for aborting transcription jobs

@@ -16,63 +16,43 @@ class ParakeetPythonEngine
 public:
     ParakeetPythonEngine (const std::string& modelsDirIn) : modelsDir (modelsDirIn) {}
 
-    ~ParakeetPythonEngine()
-    {
-        DBG ("ParakeetPythonEngine destructor");
-    }
+    ~ParakeetPythonEngine() = default;
 
-    // Download the model - for Python version, we rely on onnx-asr to download models
     bool downloadModel (const std::string& /*modelName*/, std::function<bool ()> /*isAborted*/)
     {
-        // Check if Python and onnx-asr are available
         if (! checkPythonAvailable())
-        {
-            DBG ("Python or onnx-asr not available");
             return false;
-        }
 
         progress.store (100);
         return true;
     }
 
-    // Load the model - for Python version, this is a no-op (model loads on each transcription)
     bool loadModel (const std::string& modelName)
     {
-        DBG ("ParakeetPythonEngine::loadModel: " + modelName);
-
         if (! checkPythonAvailable())
-        {
-            DBG ("Python or onnx-asr not available");
             return false;
-        }
 
         lastModelName = modelName;
         return true;
     }
 
-    // Transcribe the audio data using Python subprocess
     bool transcribe (
         const std::vector<float>& audioData,
         ASROptions& /*options*/,
         std::vector<ASRSegment>& segments,
         std::function<bool ()> isAborted)
     {
-        DBG ("ParakeetPythonEngine::transcribe");
 
         auto startTime = juce::Time::getMillisecondCounterHiRes();
         progress.store (0);
 
         try
         {
-            // Create temporary WAV file
             auto tempFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
                 .getChildFile ("reaspeech_temp_" + juce::String (juce::Random::getSystemRandom().nextInt()) + ".wav");
 
             if (! writeWavFile (tempFile, audioData, 16000))
-            {
-                DBG ("Failed to write temporary WAV file");
                 return false;
-            }
 
             progress.store (20);
 
@@ -82,21 +62,13 @@ public:
                 return false;
             }
 
-            // Create Python script to run transcription
             auto transcriptionResult = runPythonTranscription (tempFile.getFullPathName(), isAborted);
-
-            // Clean up temp file
             tempFile.deleteFile();
 
             if (transcriptionResult.isEmpty())
-            {
-                DBG ("Python transcription returned empty result");
                 return false;
-            }
 
             progress.store (90);
-
-            // Parse the result - each line is a JSON object with {text, start, end}
             juce::StringArray lines;
             lines.addLines (transcriptionResult);
 
@@ -106,7 +78,6 @@ public:
                 if (trimmedLine.isEmpty())
                     continue;
 
-                // Parse JSON
                 auto json = juce::JSON::parse (trimmedLine);
                 if (! json.isObject())
                     continue;
@@ -124,7 +95,6 @@ public:
                     segments.push_back (segment);
             }
 
-            // Fallback if no segments were parsed
             if (segments.empty())
             {
                 float totalDuration = static_cast<float> (audioData.size()) / 16000.0f;
@@ -141,9 +111,8 @@ public:
             progress.store (100);
             return true;
         }
-        catch (const std::exception& /*ex*/)
+        catch (...)
         {
-            DBG ("Error during Python transcription");
             return false;
         }
     }
@@ -161,7 +130,6 @@ public:
 private:
     juce::File findParakeetExecutable()
     {
-        // Try several locations for the parakeet transcription executable
         juce::StringArray executableNames;
 
         #ifdef _WIN32
@@ -172,61 +140,42 @@ private:
         executableNames.add ("parakeet-transcribe-linux");
         #endif
 
-        // Also try generic name as fallback
         executableNames.add ("parakeet-transcribe");
 
-        // Search locations
         juce::Array<juce::File> searchPaths;
-
-        // 1. Plugin's Resources directory (macOS bundle structure)
         auto pluginFile = juce::File::getSpecialLocation (juce::File::currentExecutableFile);
+
         #ifdef __APPLE__
         searchPaths.add (pluginFile.getParentDirectory().getParentDirectory().getChildFile ("Resources"));
         #endif
 
-        // 2. Same directory as plugin
         searchPaths.add (pluginFile.getParentDirectory());
-
-        // 3. Application data directory
         searchPaths.add (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
                         .getChildFile ("ReaSpeechLite"));
 
-        DBG ("Searching for Parakeet executable in " + juce::String (searchPaths.size()) + " locations:");
-
-        // Try each location with each executable name
         for (const auto& searchPath : searchPaths)
         {
-            DBG ("  Checking: " + searchPath.getFullPathName());
             for (const auto& exeName : executableNames)
             {
                 auto exeFile = searchPath.getChildFile (exeName);
-                DBG ("    Looking for: " + exeFile.getFullPathName());
                 if (exeFile.existsAsFile())
-                {
-                    DBG ("    ✓ Found Parakeet executable: " + exeFile.getFullPathName());
                     return exeFile;
-                }
             }
         }
 
-        DBG ("ERROR: Parakeet executable not found in any search location");
         return {};
     }
 
     bool checkPythonAvailable()
     {
-        // First, try to find the bundled executable
         auto executable = findParakeetExecutable();
         if (executable.existsAsFile())
         {
             parakeetExecutablePath = executable.getFullPathName();
-            DBG ("Using bundled Parakeet executable: " + parakeetExecutablePath);
             return true;
         }
 
-        // Fallback: Try to find Python executable (for development)
         juce::StringArray pythonCommands = { "python3", "python" };
-
         for (const auto& cmd : pythonCommands)
         {
             juce::ChildProcess process;
@@ -234,12 +183,10 @@ private:
             {
                 process.waitForProcessToFinish (2000);
                 pythonCommand = cmd;
-                DBG ("Found Python: " + cmd);
                 return true;
             }
         }
 
-        DBG ("Neither bundled executable nor Python found");
         return false;
     }
 
@@ -247,11 +194,9 @@ private:
     {
         try
         {
-            // Create an AudioBuffer from the float data
             juce::AudioBuffer<float> buffer (1, static_cast<int> (audioData.size()));
             buffer.copyFrom (0, 0, audioData.data(), static_cast<int> (audioData.size()));
 
-            // Use JUCE's WavAudioFormat to write the file
             juce::WavAudioFormat wavFormat;
             auto outputStream = file.createOutputStream();
 
@@ -259,12 +204,7 @@ private:
                 return false;
 
             std::unique_ptr<juce::AudioFormatWriter> writer (
-                wavFormat.createWriterFor (outputStream.release(),
-                                          sampleRate,
-                                          1, // num channels
-                                          16, // bits per sample
-                                          {}, // metadata
-                                          0)); // quality option
+                wavFormat.createWriterFor (outputStream.release(), sampleRate, 1, 16, {}, 0));
 
             if (writer == nullptr)
                 return false;
@@ -281,7 +221,6 @@ private:
     {
         juce::StringArray args;
 
-        // Use bundled executable if available, otherwise fall back to Python
         if (parakeetExecutablePath.isNotEmpty())
         {
             args.add (parakeetExecutablePath);
@@ -289,21 +228,13 @@ private:
         }
         else
         {
-            // Fallback: Use Python with inline script (for development)
             juce::String pythonScript = R"(
 import sys
 try:
     from onnx_asr import OnnxASR
-
     audio_file = sys.argv[1]
-
-    # Initialize Parakeet TDT ASR
     asr = OnnxASR(model='parakeet_tdt_0.6b')
-
-    # Transcribe
     result = asr.transcribe(audio_file)
-
-    # Print result (just the text)
     if result and 'text' in result:
         print(result['text'])
     elif isinstance(result, str):
@@ -318,34 +249,23 @@ except Exception as e:
     sys.exit(1)
 )";
 
-            // Save script to temp file
             auto scriptFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
                 .getChildFile ("reaspeech_transcribe.py");
 
             if (! scriptFile.replaceWithText (pythonScript))
-            {
-                DBG ("Failed to write Python script");
                 return {};
-            }
 
             args.add (pythonCommand);
             args.add (scriptFile.getFullPathName());
             args.add (audioFilePath);
         }
 
-        DBG ("Running: " + args.joinIntoString (" "));
-
-        // Run the command
         juce::ChildProcess process;
         if (! process.start (args))
-        {
-            DBG ("Failed to start process");
             return {};
-        }
 
         progress.store (50);
 
-        // Wait for process to complete (with periodic abort checks)
         while (process.isRunning())
         {
             if (isAborted())
@@ -359,15 +279,8 @@ except Exception as e:
         progress.store (80);
 
         auto output = process.readAllProcessOutput();
-
-        DBG ("Process output: " + output);
-
-        // Check for errors
         if (output.startsWith ("ERROR:"))
-        {
-            DBG ("Process error: " + output);
             return {};
-        }
 
         return output.trim();
     }
