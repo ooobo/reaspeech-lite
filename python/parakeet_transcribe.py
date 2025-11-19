@@ -222,6 +222,8 @@ def main():
                        help='Model name (default: nemo-parakeet-tdt-0.6b-v2)')
     parser.add_argument('--chunk-duration', type=float, default=120.0,
                        help='Chunk duration in seconds for long files (default: 120.0)')
+    parser.add_argument('--quantization', type=str, default='int8',
+                       help='Model quantization (default: int8, options: int8, None)')
     args = parser.parse_args()
 
     audio_file = Path(args.audio_file)
@@ -233,7 +235,9 @@ def main():
         # Load ASR model (with progress bars disabled)
         # Use CPU provider only - CoreML has compatibility issues with Parakeet TDT models
         # Enable timestamps for accurate segment timing
-        asr = load_model(args.model, providers=['CPUExecutionProvider']).with_timestamps()
+        # Handle "None" string input for quantization
+        quantization = None if args.quantization.lower() == 'none' else args.quantization
+        asr = load_model(args.model, quantization=quantization, providers=['CPUExecutionProvider']).with_timestamps()
 
         # Transcribe with chunking support
         sentences = transcribe_with_chunking(asr, str(audio_file), chunk_duration=args.chunk_duration)
