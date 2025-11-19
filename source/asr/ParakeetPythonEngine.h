@@ -42,9 +42,13 @@ public:
         std::vector<ASRSegment>& segments,
         std::function<bool ()> isAborted)
     {
-
         auto startTime = juce::Time::getMillisecondCounterHiRes();
         progress.store (0);
+
+        auto updateProcessingTime = [&]() {
+            auto endTime = juce::Time::getMillisecondCounterHiRes();
+            processingTimeSeconds.store ((endTime - startTime) / 1000.0);
+        };
 
         try
         {
@@ -52,13 +56,17 @@ public:
                 .getChildFile ("reaspeech_temp_" + juce::String (juce::Random::getSystemRandom().nextInt()) + ".wav");
 
             if (! writeWavFile (tempFile, audioData, 16000))
+            {
+                updateProcessingTime();
                 return false;
+            }
 
             progress.store (20);
 
             if (isAborted())
             {
                 tempFile.deleteFile();
+                updateProcessingTime();
                 return false;
             }
 
@@ -66,7 +74,10 @@ public:
             tempFile.deleteFile();
 
             if (transcriptionResult.isEmpty())
+            {
+                updateProcessingTime();
                 return false;
+            }
 
             progress.store (90);
             juce::StringArray lines;
@@ -105,14 +116,13 @@ public:
                 segments.push_back (segment);
             }
 
-            auto endTime = juce::Time::getMillisecondCounterHiRes();
-            processingTimeSeconds.store ((endTime - startTime) / 1000.0);
-
+            updateProcessingTime();
             progress.store (100);
             return true;
         }
         catch (...)
         {
+            updateProcessingTime();
             return false;
         }
     }

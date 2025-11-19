@@ -9,7 +9,7 @@ struct Config
 {
     static inline const std::vector<std::pair<std::string, std::string>> models = {
         { "onnx-nemo-parakeet-tdt-0.6b-v2", "Parakeet" },
-        { "onnx-onnx-community/whisper-large-v3-turbo", "ONNX W Turbo" },
+        // { "onnx-onnx-community/whisper-large-v3-turbo", "ONNX W Turbo" },
         { "small", "Whisper Small" },
         { "medium", "Whisper Medium" },
         { "large-v3", "Whisper Large" },
