@@ -429,10 +429,9 @@ public:
         if (auto* audioSource = getAudioSourceByPersistentID (audioSourcePersistentID))
         {
             // Determine which engine to use based on model name
-            bool useParakeet = Config::isParakeetModel (options->modelName.toStdString());
+            bool useOnnx = Config::isOnnxModel (options->modelName.toStdString());
 
-            // Lazy initialization of ParakeetPythonEngine - only create when first needed
-            if (useParakeet && parakeetEngine == nullptr)
+            if (useOnnx && parakeetEngine == nullptr)
             {
                 parakeetEngine = std::make_unique<ParakeetPythonEngine> (Config::getModelsDir());
             }
@@ -496,7 +495,7 @@ public:
                 rsAudioSource->setFilePath (audioFilePath);
             }
 
-            if (useParakeet)
+            if (useOnnx)
             {
                 job = new ASRThreadPoolJob<ParakeetPythonEngine> (
                     *parakeetEngine,

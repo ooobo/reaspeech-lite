@@ -301,10 +301,23 @@ jobs:
           # xcrun notarytool submit "${{ env.ARTIFACT_NAME }}.pkg" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
           # xcrun stapler staple "${{ env.ARTIFACT_NAME }}.pkg"
 
+      - name: Copy Parakeet executable to artifacts (Linux)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'
+        run: |
+          cp python/dist/parakeet-transcribe-linux "${{ env.ARTIFACTS_PATH }}/"
+          chmod +x "${{ env.ARTIFACTS_PATH }}/parakeet-transcribe-linux"
+          echo "Copied parakeet-transcribe-linux to ${{ env.ARTIFACTS_PATH }}/"
+
       - name: Zip
         if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'
         working-directory: ${{ env.ARTIFACTS_PATH }}
         run: 7z a -tzip "${{ env.ARTIFACT_NAME }}.zip" "-xr!lib${{ env.PRODUCT_NAME }}_SharedCode.a" .
+
+      - name: Copy Parakeet executable to VST3 bundle (Windows)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
+        run: |
+          cp python/dist/parakeet-transcribe-windows.exe "${{ env.VST3_PATH }}/"
+          echo "Copied parakeet-transcribe-windows.exe to ${{ env.VST3_PATH }}/"
 
       - name: Generate Installer
         if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'

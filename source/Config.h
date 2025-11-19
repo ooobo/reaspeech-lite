@@ -8,7 +8,8 @@
 struct Config
 {
     static inline const std::vector<std::pair<std::string, std::string>> models = {
-        { "tdt-0.6b-v2", "Parakeet TDT" },
+        { "onnx-parakeet-tdt-0.6b-v2", "Parakeet" },
+        { "onnx-onnx-community/whisper-large-v3-turbo", "ONNX W Turbo" },
         { "small", "Whisper Small" },
         { "medium", "Whisper Medium" },
         { "large-v3", "Whisper Large" },
@@ -17,12 +18,8 @@ struct Config
 
     static const juce::URL getModelURL (std::string modelNameIn)
     {
-        // Check if this is a Parakeet model
-        if (isParakeetModel (modelNameIn))
-        {
-            // Parakeet models are handled differently (multiple files)
+        if (isOnnxModel (modelNameIn))
             return juce::URL ("");
-        }
 
         return juce::URL ("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-" + modelNameIn + ".bin");
     }
@@ -33,8 +30,8 @@ struct Config
         return tempDir.getFullPathName().toStdString() + "/models/";
     }
 
-    static bool isParakeetModel (const std::string& modelName)
+    static bool isOnnxModel (const std::string& modelName)
     {
-        return modelName.find ("tdt-") != std::string::npos;
+        return modelName.find ("onnx-") == 0;
     }
 };

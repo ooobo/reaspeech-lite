@@ -221,10 +221,16 @@ private:
     {
         juce::StringArray args;
 
+        juce::String modelForPython = lastModelName;
+        if (modelForPython.startsWith ("onnx-"))
+            modelForPython = modelForPython.substring (5);
+
         if (parakeetExecutablePath.isNotEmpty())
         {
             args.add (parakeetExecutablePath);
             args.add (audioFilePath);
+            args.add ("--model");
+            args.add (modelForPython);
         }
         else
         {
