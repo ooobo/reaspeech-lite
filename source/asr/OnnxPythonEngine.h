@@ -8,13 +8,15 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 
 #include "../utils/SafeUTF8.h"
+#include "../reaper/ReaperProxy.h"
 #include "ASROptions.h"
 #include "ASRSegment.h"
 
 class OnnxPythonEngine
 {
 public:
-    OnnxPythonEngine (const std::string& modelsDirIn) : modelsDir (modelsDirIn) {}
+    OnnxPythonEngine (const std::string& modelsDirIn, ReaperProxy* reaperProxyIn = nullptr)
+        : modelsDir (modelsDirIn), reaperProxy (reaperProxyIn) {}
 
     ~OnnxPythonEngine() = default;
 
@@ -56,15 +58,15 @@ public:
         try
         {
             float audioDuration = static_cast<float> (audioData.size()) / 16000.0f;
-            juce::Logger::writeToLog ("Parakeet: Starting transcription for " +
-                                     juce::String (audioDuration, 1) + "s audio");
+            logToConsole ("Parakeet: Starting transcription for " +
+                         juce::String (audioDuration, 1) + "s audio");
 
             auto tempFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
                 .getChildFile ("reaspeech_temp_" + juce::String (juce::Random::getSystemRandom().nextInt()) + ".wav");
 
             if (! writeWavFile (tempFile, audioData, 16000))
             {
-                juce::Logger::writeToLog ("Parakeet: Failed to write WAV file");
+                logToConsole ("Parakeet: Failed to write WAV file");
                 updateProcessingTime();
                 return false;
             }
@@ -78,19 +80,19 @@ public:
                 return false;
             }
 
-            juce::Logger::writeToLog ("Parakeet: Running transcription process...");
+            logToConsole ("Parakeet: Running transcription process...");
             auto transcriptionResult = runPythonTranscription (tempFile.getFullPathName(), isAborted);
             tempFile.deleteFile();
 
             if (transcriptionResult.isEmpty())
             {
-                juce::Logger::writeToLog ("Parakeet: Transcription returned empty result");
+                logToConsole ("Parakeet: Transcription returned empty result");
                 updateProcessingTime();
                 return false;
             }
 
-            juce::Logger::writeToLog ("Parakeet: Received " + juce::String (transcriptionResult.length()) +
-                                     " bytes of output");
+            logToConsole ("Parakeet: Received " + juce::String (transcriptionResult.length()) +
+                         " bytes of output");
             progress.store (90);
             juce::StringArray lines;
             lines.addLines (transcriptionResult);
@@ -106,15 +108,14 @@ public:
                 if (! json.isObject())
                 {
                     // Not JSON - this is a progress/debug message from stderr
-                    // Use Logger instead of DBG so it works in Release builds
-                    juce::Logger::writeToLog ("Parakeet: " + trimmedLine);
+                    logToConsole ("Parakeet: " + trimmedLine);
                     continue;
                 }
 
                 auto jsonObj = json.getDynamicObject();
                 if (jsonObj == nullptr)
                 {
-                    juce::Logger::writeToLog ("Parakeet: Failed to parse JSON object: " + trimmedLine);
+                    logToConsole ("Parakeet: Failed to parse JSON object: " + trimmedLine);
                     continue;
                 }
 
@@ -129,7 +130,7 @@ public:
 
             if (segments.empty())
             {
-                juce::Logger::writeToLog ("Parakeet: No segments parsed, using raw output as single segment");
+                logToConsole ("Parakeet: No segments parsed, using raw output as single segment");
                 float totalDuration = static_cast<float> (audioData.size()) / 16000.0f;
                 ASRSegment segment;
                 segment.text = transcriptionResult;
@@ -138,7 +139,7 @@ public:
                 segments.push_back (segment);
             }
 
-            juce::Logger::writeToLog ("Parakeet: Successfully parsed " + juce::String (segments.size()) + " segments");
+            logToConsole ("Parakeet: Successfully parsed " + juce::String (segments.size()) + " segments");
             updateProcessingTime();
             progress.store (100);
             return true;
@@ -335,25 +336,38 @@ except Exception as e:
         auto exitCode = process.getExitCode();
         if (exitCode != 0)
         {
-            juce::Logger::writeToLog ("Parakeet process exited with code: " + juce::String (exitCode));
-            juce::Logger::writeToLog ("Output: " + output);
+            logToConsole ("Parakeet process exited with code: " + juce::String (exitCode));
+            logToConsole ("Output: " + output);
             return {};
         }
 
         // Check for errors
         if (output.startsWith ("ERROR:") || output.contains ("ERROR:"))
         {
-            juce::Logger::writeToLog ("Parakeet error: " + output);
+            logToConsole ("Parakeet error: " + output);
             return {};
         }
 
         return output.trim();
     }
 
+    void logToConsole (const juce::String& message)
+    {
+        if (reaperProxy && reaperProxy->hasShowConsoleMsg)
+        {
+            try
+            {
+                reaperProxy->ShowConsoleMsg ((message + "\n").toRawUTF8());
+            }
+            catch (...) {}
+        }
+    }
+
     std::string modelsDir;
     std::string lastModelName;
     juce::String pythonCommand = "python3";
     juce::String onnxExecutablePath;
+    ReaperProxy* reaperProxy = nullptr;
     std::atomic<int> progress { 0 };
     std::atomic<double> processingTimeSeconds { 0.0 };
 };

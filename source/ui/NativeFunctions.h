@@ -433,7 +433,7 @@ public:
 
             if (useOnnx && onnxEngine == nullptr)
             {
-                onnxEngine = std::make_unique<OnnxPythonEngine> (Config::getModelsDir());
+                onnxEngine = std::make_unique<OnnxPythonEngine> (Config::getModelsDir(), &rpr);
             }
 
             juce::ThreadPoolJob* job = nullptr;
