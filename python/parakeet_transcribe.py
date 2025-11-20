@@ -180,8 +180,8 @@ def transcribe_with_chunking(asr, audio_path, chunk_duration=120.0):
             text = result.text if hasattr(result, 'text') else str(result)
             return [{'text': text, 'start': 0.0, 'end': duration}]
 
-    # Note: Do not print to stderr - it gets mixed with stdout in JUCE's readAllProcessOutput()
-    # print(f"Processing {duration:.1f}s audio in chunks of {chunk_duration}s...", file=sys.stderr)
+    # Progress messages go to stderr - C++ code will filter and show in Reaper console
+    print(f"Processing {duration:.1f}s audio in chunks of {chunk_duration}s...", file=sys.stderr)
 
     all_tokens = []
     all_timestamps = []
@@ -190,8 +190,8 @@ def transcribe_with_chunking(asr, audio_path, chunk_duration=120.0):
     for chunk, chunk_start, chunk_end, chunk_idx, total_chunks in chunk_audio_generator(
         audio_path, chunk_duration=chunk_duration, overlap_duration=15.0
     ):
-        # Note: Do not print to stderr - it gets mixed with stdout in JUCE's readAllProcessOutput()
-        # print(f"Processing chunk {chunk_idx+1}/{total_chunks} ({chunk_start:.1f}s - {chunk_end:.1f}s)...", file=sys.stderr)
+        # Progress messages go to stderr - C++ code will filter and show in Reaper console
+        print(f"Processing chunk {chunk_idx+1}/{total_chunks} ({chunk_start:.1f}s - {chunk_end:.1f}s)...", file=sys.stderr)
         result = asr.recognize(chunk, sample_rate=16000)
 
         if hasattr(result, 'tokens') and hasattr(result, 'timestamps'):

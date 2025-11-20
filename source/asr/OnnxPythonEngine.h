@@ -92,9 +92,15 @@ public:
                 if (trimmedLine.isEmpty())
                     continue;
 
+                // Try to parse as JSON
                 auto json = juce::JSON::parse (trimmedLine);
                 if (! json.isObject())
+                {
+                    // Not JSON - this is a progress/debug message from stderr
+                    // Send to DBG so it shows in Reaper's ReaScript console
+                    DBG ("Parakeet: " + trimmedLine);
                     continue;
+                }
 
                 auto jsonObj = json.getDynamicObject();
                 if (jsonObj == nullptr)
