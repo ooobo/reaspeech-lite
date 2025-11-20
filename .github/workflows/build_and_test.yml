@@ -317,8 +317,9 @@ jobs:
       - name: Copy Parakeet executable to VST3 bundle (Windows)
         if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
         run: |
-          cp python/dist/parakeet-transcribe-windows.exe "${{ env.VST3_PATH }}/"
-          echo "Copied parakeet-transcribe-windows.exe to ${{ env.VST3_PATH }}/"
+          mkdir -p "${{ env.VST3_PATH }}/Contents/x86_64-win"
+          cp python/dist/parakeet-transcribe-windows.exe "${{ env.VST3_PATH }}/Contents/x86_64-win/"
+          echo "Copied parakeet-transcribe-windows.exe to ${{ env.VST3_PATH }}/Contents/x86_64-win/"
 
       - name: Generate Installer
         if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
