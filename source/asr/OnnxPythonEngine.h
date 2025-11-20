@@ -55,11 +55,16 @@ public:
 
         try
         {
+            float audioDuration = static_cast<float> (audioData.size()) / 16000.0f;
+            juce::Logger::writeToLog ("Parakeet: Starting transcription for " +
+                                     juce::String (audioDuration, 1) + "s audio");
+
             auto tempFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
                 .getChildFile ("reaspeech_temp_" + juce::String (juce::Random::getSystemRandom().nextInt()) + ".wav");
 
             if (! writeWavFile (tempFile, audioData, 16000))
             {
+                juce::Logger::writeToLog ("Parakeet: Failed to write WAV file");
                 updateProcessingTime();
                 return false;
             }
@@ -73,15 +78,19 @@ public:
                 return false;
             }
 
+            juce::Logger::writeToLog ("Parakeet: Running transcription process...");
             auto transcriptionResult = runPythonTranscription (tempFile.getFullPathName(), isAborted);
             tempFile.deleteFile();
 
             if (transcriptionResult.isEmpty())
             {
+                juce::Logger::writeToLog ("Parakeet: Transcription returned empty result");
                 updateProcessingTime();
                 return false;
             }
 
+            juce::Logger::writeToLog ("Parakeet: Received " + juce::String (transcriptionResult.length()) +
+                                     " bytes of output");
             progress.store (90);
             juce::StringArray lines;
             lines.addLines (transcriptionResult);
@@ -97,14 +106,17 @@ public:
                 if (! json.isObject())
                 {
                     // Not JSON - this is a progress/debug message from stderr
-                    // Send to DBG so it shows in Reaper's ReaScript console
-                    DBG ("Parakeet: " + trimmedLine);
+                    // Use Logger instead of DBG so it works in Release builds
+                    juce::Logger::writeToLog ("Parakeet: " + trimmedLine);
                     continue;
                 }
 
                 auto jsonObj = json.getDynamicObject();
                 if (jsonObj == nullptr)
+                {
+                    juce::Logger::writeToLog ("Parakeet: Failed to parse JSON object: " + trimmedLine);
                     continue;
+                }
 
                 ASRSegment segment;
                 segment.text = jsonObj->getProperty ("text").toString();
@@ -117,6 +129,7 @@ public:
 
             if (segments.empty())
             {
+                juce::Logger::writeToLog ("Parakeet: No segments parsed, using raw output as single segment");
                 float totalDuration = static_cast<float> (audioData.size()) / 16000.0f;
                 ASRSegment segment;
                 segment.text = transcriptionResult;
@@ -125,6 +138,7 @@ public:
                 segments.push_back (segment);
             }
 
+            juce::Logger::writeToLog ("Parakeet: Successfully parsed " + juce::String (segments.size()) + " segments");
             updateProcessingTime();
             progress.store (100);
             return true;
@@ -292,7 +306,7 @@ except Exception as e:
 
         progress.store (50);
 
-        // Wait for process to complete (with periodic abort checks)
+        // Read output incrementally while process runs to avoid buffer overflow
         juce::String output;
         while (process.isRunning())
         {
@@ -301,19 +315,37 @@ except Exception as e:
                 process.kill();
                 return {};
             }
+
+            // Read any available output to prevent buffer from filling up
+            auto chunk = process.readAllProcessOutput();
+            if (chunk.isNotEmpty())
+                output += chunk;
+
             juce::Thread::sleep (100);
         }
 
+        // Read any remaining output
+        auto remaining = process.readAllProcessOutput();
+        if (remaining.isNotEmpty())
+            output += remaining;
+
         progress.store (80);
 
-        // Read all output after process finishes
-        output = process.readAllProcessOutput();
-
-        DBG ("Process output: " + output);
+        // Check exit code
+        auto exitCode = process.getExitCode();
+        if (exitCode != 0)
+        {
+            juce::Logger::writeToLog ("Parakeet process exited with code: " + juce::String (exitCode));
+            juce::Logger::writeToLog ("Output: " + output);
+            return {};
+        }
 
         // Check for errors
-        if (output.startsWith ("ERROR:"))
+        if (output.startsWith ("ERROR:") || output.contains ("ERROR:"))
+        {
+            juce::Logger::writeToLog ("Parakeet error: " + output);
             return {};
+        }
 
         return output.trim();
     }
