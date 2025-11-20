@@ -31,6 +31,7 @@ public:
         audioProcessor (audioProcessorIn)
     {
         asrEngine = std::make_unique<ASREngine> (Config::getModelsDir());
+        onnxEngine = std::make_unique<OnnxPythonEngine> (Config::getModelsDir(), &audioProcessorIn.reaperProxy);
     }
 
     // Timeout in milliseconds for aborting transcription jobs
@@ -431,18 +432,19 @@ public:
             // Determine which engine to use based on model name
             bool useOnnx = Config::isOnnxModel (options->modelName.toStdString());
 
-            if (useOnnx && onnxEngine == nullptr)
-            {
-                onnxEngine = std::make_unique<OnnxPythonEngine> (Config::getModelsDir(), &rpr);
-            }
-
             juce::ThreadPoolJob* job = nullptr;
 
             auto statusCallback = [this] (ASRThreadPoolJobStatus status) {
                 asrStatus = status;
             };
 
-            auto completionCallback = [this, complete] (const ASRThreadPoolJobResult& result) {
+            auto completionCallback = [this, complete, useOnnx] (const ASRThreadPoolJobResult& result) {
+                // Capture processing time from whichever engine was used
+                if (useOnnx && onnxEngine != nullptr)
+                    lastProcessingTimeSeconds.store (onnxEngine->getProcessingTime());
+                else if (asrEngine != nullptr)
+                    lastProcessingTimeSeconds.store (asrEngine->getProcessingTime());
+
                 if (result.isError)
                     complete (makeError (result.errorMessage));
                 else
@@ -497,7 +499,6 @@ public:
 
             if (useOnnx)
             {
-                lastUsedOnnx.store (true);
                 job = new ASRThreadPoolJob<OnnxPythonEngine> (
                     *onnxEngine,
                     audioSource,
@@ -508,7 +509,6 @@ public:
             }
             else
             {
-                lastUsedOnnx.store (false);
                 job = new ASRThreadPoolJob<ASREngine> (
                     *asrEngine,
                     audioSource,
@@ -606,18 +606,7 @@ public:
 
     void getProcessingTime (const juce::var&, std::function<void (const juce::var&)> complete)
     {
-        // Check which engine was last used and return its processing time
-        if (lastUsedOnnx.load() && onnxEngine != nullptr)
-        {
-            complete (juce::var (onnxEngine->getProcessingTime()));
-            return;
-        }
-        if (!lastUsedOnnx.load() && asrEngine != nullptr)
-        {
-            complete (juce::var (asrEngine->getProcessingTime()));
-            return;
-        }
-        complete (juce::var (0.0));
+        complete (juce::var (lastProcessingTimeSeconds.load()));
     }
 
 private:
@@ -815,7 +804,7 @@ private:
     std::unique_ptr<OnnxPythonEngine> onnxEngine;
     std::atomic<ASRThreadPoolJobStatus> asrStatus;
     std::atomic<bool> debugMode { false };
-    std::atomic<bool> lastUsedOnnx { false };
+    std::atomic<double> lastProcessingTimeSeconds { 0.0 };
     juce::ThreadPool threadPool { 1 };
 
     std::unique_ptr<juce::FileChooser> fileChooser;
