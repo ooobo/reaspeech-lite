@@ -141,6 +141,7 @@ public:
 
             logToConsole ("Parakeet: Successfully parsed " + juce::String (segments.size()) + " segments");
             updateProcessingTime();
+            logToConsole ("Parakeet: Processing time: " + juce::String (processingTimeSeconds.load(), 2) + "s");
             progress.store (100);
             return true;
         }

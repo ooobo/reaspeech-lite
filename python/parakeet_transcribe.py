@@ -5,6 +5,7 @@ Standalone executable for ASR transcription using onnx-asr
 """
 import sys
 import os
+import time
 
 # Handle multiprocessing spawn on macOS
 if '-c' in sys.argv:
@@ -234,12 +235,17 @@ def main():
         sys.exit(1)
 
     try:
+        start_time = time.time()
+
         quantization = None if args.quantization.lower() == 'none' else args.quantization
         asr = load_model(args.model, quantization=quantization, providers=['CPUExecutionProvider']).with_timestamps()
         sentences = transcribe_with_chunking(asr, str(audio_file), chunk_duration=args.chunk_duration)
 
         for segment in sentences:
             print(json.dumps(segment))
+
+        elapsed = time.time() - start_time
+        print(f"Processing time: {elapsed:.2f}s", file=sys.stderr)
 
     except Exception as e:
         print(f"ERROR: Transcription failed: {str(e)}", file=sys.stderr)
