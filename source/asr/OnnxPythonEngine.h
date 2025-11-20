@@ -309,7 +309,10 @@ except Exception as e:
         progress.store (50);
 
         // Read output incrementally while process runs to avoid buffer overflow
+        // Also parse progress messages in real-time
         juce::String output;
+        juce::String lineBuffer;
+
         while (process.isRunning())
         {
             if (isAborted())
@@ -321,7 +324,54 @@ except Exception as e:
             // Read any available output to prevent buffer from filling up
             auto chunk = process.readAllProcessOutput();
             if (chunk.isNotEmpty())
+            {
                 output += chunk;
+                lineBuffer += chunk;
+
+                // Process complete lines for real-time logging and progress parsing
+                int newlinePos;
+                while ((newlinePos = lineBuffer.indexOfChar ('\n')) >= 0)
+                {
+                    auto line = lineBuffer.substring (0, newlinePos).trim();
+                    lineBuffer = lineBuffer.substring (newlinePos + 1);
+
+                    if (line.isNotEmpty())
+                    {
+                        // Check if this is a chunk progress message
+                        // Format: "Processing chunk 5/10 (105.0s - 225.0s)..."
+                        if (line.contains ("Processing chunk "))
+                        {
+                            // Log to console immediately
+                            logToConsole ("Parakeet: " + line);
+
+                            // Extract chunk numbers for progress calculation
+                            auto chunkStart = line.indexOf ("chunk ") + 6;
+                            auto slashPos = line.indexOfChar (chunkStart, '/');
+                            if (slashPos > chunkStart)
+                            {
+                                auto spaceAfterTotal = line.indexOfChar (slashPos + 1, ' ');
+                                if (spaceAfterTotal < 0)
+                                    spaceAfterTotal = line.length();
+
+                                auto currentChunk = line.substring (chunkStart, slashPos).getIntValue();
+                                auto totalChunks = line.substring (slashPos + 1, spaceAfterTotal).getIntValue();
+
+                                if (totalChunks > 0)
+                                {
+                                    // Scale progress from 50% to 80% based on chunk completion
+                                    int chunkProgress = 50 + (30 * currentChunk / totalChunks);
+                                    progress.store (chunkProgress);
+                                }
+                            }
+                        }
+                        else if (line.contains ("Processing ") && line.contains ("audio in chunks"))
+                        {
+                            // Log the initial chunking message
+                            logToConsole ("Parakeet: " + line);
+                        }
+                    }
+                }
+            }
 
             juce::Thread::sleep (100);
         }
