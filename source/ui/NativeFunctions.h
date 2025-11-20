@@ -497,6 +497,7 @@ public:
 
             if (useOnnx)
             {
+                lastUsedOnnx.store (true);
                 job = new ASRThreadPoolJob<OnnxPythonEngine> (
                     *onnxEngine,
                     audioSource,
@@ -507,6 +508,7 @@ public:
             }
             else
             {
+                lastUsedOnnx.store (false);
                 job = new ASRThreadPoolJob<ASREngine> (
                     *asrEngine,
                     audioSource,
@@ -604,14 +606,15 @@ public:
 
     void getProcessingTime (const juce::var&, std::function<void (const juce::var&)> complete)
     {
-        if (asrEngine != nullptr)
-        {
-            complete (juce::var (asrEngine->getProcessingTime()));
-            return;
-        }
-        if (onnxEngine != nullptr)
+        // Check which engine was last used and return its processing time
+        if (lastUsedOnnx.load() && onnxEngine != nullptr)
         {
             complete (juce::var (onnxEngine->getProcessingTime()));
+            return;
+        }
+        if (!lastUsedOnnx.load() && asrEngine != nullptr)
+        {
+            complete (juce::var (asrEngine->getProcessingTime()));
             return;
         }
         complete (juce::var (0.0));
@@ -812,6 +815,7 @@ private:
     std::unique_ptr<OnnxPythonEngine> onnxEngine;
     std::atomic<ASRThreadPoolJobStatus> asrStatus;
     std::atomic<bool> debugMode { false };
+    std::atomic<bool> lastUsedOnnx { false };
     juce::ThreadPool threadPool { 1 };
 
     std::unique_ptr<juce::FileChooser> fileChooser;
