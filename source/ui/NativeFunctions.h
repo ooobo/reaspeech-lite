@@ -439,11 +439,19 @@ public:
             };
 
             auto completionCallback = [this, complete, useOnnx] (const ASRThreadPoolJobResult& result) {
-                // Capture processing time from whichever engine was used
+                // Accumulate processing time from whichever engine was used
+                double processingTime = 0.0;
                 if (useOnnx && onnxEngine != nullptr)
-                    lastProcessingTimeSeconds.store (onnxEngine->getProcessingTime());
+                    processingTime = onnxEngine->getProcessingTime();
                 else if (asrEngine != nullptr)
-                    lastProcessingTimeSeconds.store (asrEngine->getProcessingTime());
+                    processingTime = asrEngine->getProcessingTime();
+
+                // Add (not replace) the processing time for batch operations
+                double currentTotal = lastProcessingTimeSeconds.load();
+                lastProcessingTimeSeconds.store(currentTotal + processingTime);
+
+                // Decrement active job count
+                activeJobCount.fetch_sub(1);
 
                 if (result.isError)
                     complete (makeError (result.errorMessage));
@@ -517,6 +525,10 @@ public:
                     completionCallback
                 );
             }
+
+            // If this is the first job in a batch, reset accumulated time
+            if (activeJobCount.fetch_add(1) == 0)
+                lastProcessingTimeSeconds.store(0.0);
 
             threadPool.addJob (job, true);
             return;
@@ -805,6 +817,7 @@ private:
     std::atomic<ASRThreadPoolJobStatus> asrStatus;
     std::atomic<bool> debugMode { false };
     std::atomic<double> lastProcessingTimeSeconds { 0.0 };
+    std::atomic<int> activeJobCount { 0 };
     juce::ThreadPool threadPool { 1 };
 
     std::unique_ptr<juce::FileChooser> fileChooser;
