@@ -450,7 +450,8 @@ public:
                 double currentTotal = lastProcessingTimeSeconds.load();
                 lastProcessingTimeSeconds.store(currentTotal + processingTime);
 
-                // Decrement active job count
+                // Record completion time and decrement active job count
+                lastJobCompletionTime.store(juce::Time::currentTimeMillis());
                 activeJobCount.fetch_sub(1);
 
                 if (result.isError)
@@ -526,10 +527,19 @@ public:
                 );
             }
 
-            // If this is the first job in a batch, reset accumulated time
-            if (activeJobCount.fetch_add(1) == 0)
-                lastProcessingTimeSeconds.store(0.0);
+            // Reset timer if pool is idle AND it's been >3s since last job completed
+            // This detects the start of a new batch while allowing rapid sequential jobs to accumulate
+            if (threadPool.getNumJobs() == 0)
+            {
+                auto lastCompletion = lastJobCompletionTime.load();
+                auto now = juce::Time::currentTimeMillis();
+                bool isNewBatch = (lastCompletion == 0) || ((now - lastCompletion) > 3000);
 
+                if (isNewBatch)
+                    lastProcessingTimeSeconds.store(0.0);
+            }
+
+            activeJobCount.fetch_add(1);
             threadPool.addJob (job, true);
             return;
         }
@@ -818,6 +828,7 @@ private:
     std::atomic<bool> debugMode { false };
     std::atomic<double> lastProcessingTimeSeconds { 0.0 };
     std::atomic<int> activeJobCount { 0 };
+    std::atomic<juce::int64> lastJobCompletionTime { 0 };
     juce::ThreadPool threadPool { 1 };
 
     std::unique_ptr<juce::FileChooser> fileChooser;
