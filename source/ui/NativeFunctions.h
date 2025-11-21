@@ -702,32 +702,20 @@ private:
 
     void addReaperTakeMarkers (const juce::Array<juce::var>* markers)
     {
-        const bool debug = debugMode.load();
+        // Always output detailed information to ReaScript console for debugging
+        // (since users building with GitHub Actions can't access DBG output)
+        if (!rpr.hasShowConsoleMsg)
+            return;
 
-        // Always output initial status to ReaScript console
-        if (rpr.hasShowConsoleMsg)
-        {
-            if (debug)
-            {
-                juce::String msg = "=== ReaSpeech: Starting take markers creation (DEBUG MODE ON) ===\n";
-                msg += "Total markers to process: " + juce::String(markers->size()) + "\n";
-                rpr.ShowConsoleMsg (msg.toRawUTF8());
-            }
-            else
-            {
-                juce::String msg = "ReaSpeech: Creating take markers (enable debug mode for detailed output)\n";
-                rpr.ShowConsoleMsg (msg.toRawUTF8());
-            }
-        }
+        juce::String msg = "=== ReaSpeech: Starting take markers creation ===\n";
+        msg += "Total markers to process: " + juce::String(markers->size()) + "\n";
+        rpr.ShowConsoleMsg (msg.toRawUTF8());
 
         // Get all media items in the project
         int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
 
-        if (debug && rpr.hasShowConsoleMsg)
-        {
-            juce::String msg = "Found " + juce::String(numItems) + " total media items in project\n\n";
-            rpr.ShowConsoleMsg (msg.toRawUTF8());
-        }
+        msg = "Found " + juce::String(numItems) + " total media items in project\n\n";
+        rpr.ShowConsoleMsg (msg.toRawUTF8());
 
         for (const auto& markerVar : *markers)
         {
@@ -737,13 +725,10 @@ private:
             const auto sourceID = marker->getProperty ("sourceID").toString();
             int matchesFound = 0;
 
-            if (debug && rpr.hasShowConsoleMsg)
-            {
-                juce::String msg = "--- Marker: '" + name.toString() + "' ---\n";
-                msg += "  Position: " + juce::String(sourcePos) + "s\n";
-                msg += "  Looking for sourceID: " + sourceID + "\n";
-                rpr.ShowConsoleMsg (msg.toRawUTF8());
-            }
+            msg = "--- Marker: '" + name.toString() + "' ---\n";
+            msg += "  Position: " + juce::String(sourcePos) + "s\n";
+            msg += "  Looking for sourceID: " + sourceID + "\n";
+            rpr.ShowConsoleMsg (msg.toRawUTF8());
 
             // Find all media items with the matching audio source (across all tracks)
             for (int i = 0; i < numItems; ++i)
@@ -765,54 +750,39 @@ private:
                 rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
                 juce::String filename (filenamebuf);
 
-                if (debug && rpr.hasShowConsoleMsg)
-                {
-                    juce::String msg = "  Checking item " + juce::String(i) + ": " + filename + "\n";
-                    rpr.ShowConsoleMsg (msg.toRawUTF8());
-                }
+                msg = "  Checking item " + juce::String(i) + ": " + filename + "\n";
+                rpr.ShowConsoleMsg (msg.toRawUTF8());
 
                 // Match by audio source ID (must match exactly to avoid false positives)
                 // Check if filename contains the exact sourceID
                 if (filename.contains (sourceID))
                 {
-                    if (debug && rpr.hasShowConsoleMsg)
-                    {
-                        juce::String msg = "    -> MATCH! Attempting to add take marker...\n";
-                        rpr.ShowConsoleMsg (msg.toRawUTF8());
-                    }
+                    msg = "    -> MATCH! Attempting to add take marker...\n";
+                    rpr.ShowConsoleMsg (msg.toRawUTF8());
 
                     // Add take marker: idx -1 means insert new marker
                     int result = rpr.SetTakeMarker (take, -1, name.toString().toRawUTF8(), &sourcePos, nullptr);
                     if (result >= 0)
                     {
                         matchesFound++;
-                        if (debug && rpr.hasShowConsoleMsg)
-                        {
-                            juce::String msg = "    -> SUCCESS: Added take marker at " + juce::String(sourcePos) + "s (result=" + juce::String(result) + ")\n";
-                            rpr.ShowConsoleMsg (msg.toRawUTF8());
-                        }
+                        msg = "    -> SUCCESS: Added take marker at " + juce::String(sourcePos) + "s (result=" + juce::String(result) + ")\n";
+                        rpr.ShowConsoleMsg (msg.toRawUTF8());
                     }
-                    else if (debug && rpr.hasShowConsoleMsg)
+                    else
                     {
-                        juce::String msg = "    -> FAILED: SetTakeMarker returned " + juce::String(result) + "\n";
+                        msg = "    -> FAILED: SetTakeMarker returned " + juce::String(result) + "\n";
                         rpr.ShowConsoleMsg (msg.toRawUTF8());
                     }
                     // Continue checking other items - don't break!
                 }
             }
 
-            if (debug && rpr.hasShowConsoleMsg)
-            {
-                juce::String msg = "  Total matches for this marker: " + juce::String(matchesFound) + "\n\n";
-                rpr.ShowConsoleMsg (msg.toRawUTF8());
-            }
-        }
-
-        if (rpr.hasShowConsoleMsg)
-        {
-            juce::String msg = "=== ReaSpeech: Finished creating take markers ===\n";
+            msg = "  Total matches for this marker: " + juce::String(matchesFound) + "\n\n";
             rpr.ShowConsoleMsg (msg.toRawUTF8());
         }
+
+        msg = "=== ReaSpeech: Finished creating take markers ===\n";
+        rpr.ShowConsoleMsg (msg.toRawUTF8());
     }
 
     ReaperProxy::MediaItem* createEmptyReaperItem (const double start, const double end)
