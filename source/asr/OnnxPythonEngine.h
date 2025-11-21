@@ -130,13 +130,9 @@ public:
 
             if (segments.empty())
             {
-                logToConsole ("Parakeet: No segments parsed, using raw output as single segment");
-                float totalDuration = static_cast<float> (audioData.size()) / 16000.0f;
-                ASRSegment segment;
-                segment.text = transcriptionResult;
-                segment.start = 0.0f;
-                segment.end = totalDuration;
-                segments.push_back (segment);
+                logToConsole ("Parakeet: No valid segments parsed - transcription failed");
+                updateProcessingTime();
+                return false;
             }
 
             logToConsole ("Parakeet: Successfully parsed " + juce::String (segments.size()) + " segments");
@@ -260,47 +256,16 @@ private:
         if (modelForPython.startsWith ("onnx-"))
             modelForPython = modelForPython.substring (5);
 
-        if (onnxExecutablePath.isNotEmpty())
+        if (onnxExecutablePath.isEmpty())
         {
-            args.add (onnxExecutablePath);
-            args.add (audioFilePath);
-            args.add ("--model");
-            args.add (modelForPython);
+            logToConsole ("Parakeet: Executable not found");
+            return {};
         }
-        else
-        {
-            juce::String pythonScript = R"(
-import sys
-try:
-    from onnx_asr import OnnxASR
-    audio_file = sys.argv[1]
-    asr = OnnxASR(model='parakeet_tdt_0.6b')
-    result = asr.transcribe(audio_file)
-    if result and 'text' in result:
-        print(result['text'])
-    elif isinstance(result, str):
-        print(result)
-    else:
-        print('')
-except ImportError:
-    print('ERROR: onnx-asr not installed. Install with: pip install onnx-asr', file=sys.stderr)
-    sys.exit(1)
-except Exception as e:
-    print(f'ERROR: {str(e)}', file=sys.stderr)
-    sys.exit(1)
-)";
 
-            // Save script to temp file with random name to avoid conflicts
-            auto scriptFile = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                .getChildFile ("reaspeech_transcribe_" + juce::String (juce::Random::getSystemRandom().nextInt()) + ".py");
-
-            if (! scriptFile.replaceWithText (pythonScript))
-                return {};
-
-            args.add (pythonCommand);
-            args.add (scriptFile.getFullPathName());
-            args.add (audioFilePath);
-        }
+        args.add (onnxExecutablePath);
+        args.add (audioFilePath);
+        args.add ("--model");
+        args.add (modelForPython);
 
         juce::ChildProcess process;
         if (! process.start (args))
