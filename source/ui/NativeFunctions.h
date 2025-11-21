@@ -704,10 +704,20 @@ private:
     {
         const bool debug = debugMode.load();
 
-        if (debug && rpr.hasShowConsoleMsg)
+        // Always output initial status to ReaScript console
+        if (rpr.hasShowConsoleMsg)
         {
-            juce::String msg = "Starting take markers creation for " + juce::String(markers->size()) + " markers\n";
-            rpr.ShowConsoleMsg (msg.toRawUTF8());
+            if (debug)
+            {
+                juce::String msg = "=== ReaSpeech: Starting take markers creation (DEBUG MODE ON) ===\n";
+                msg += "Total markers to process: " + juce::String(markers->size()) + "\n";
+                rpr.ShowConsoleMsg (msg.toRawUTF8());
+            }
+            else
+            {
+                juce::String msg = "ReaSpeech: Creating take markers (enable debug mode for detailed output)\n";
+                rpr.ShowConsoleMsg (msg.toRawUTF8());
+            }
         }
 
         // Get all media items in the project
@@ -715,7 +725,7 @@ private:
 
         if (debug && rpr.hasShowConsoleMsg)
         {
-            juce::String msg = "Found " + juce::String(numItems) + " total media items in project\n";
+            juce::String msg = "Found " + juce::String(numItems) + " total media items in project\n\n";
             rpr.ShowConsoleMsg (msg.toRawUTF8());
         }
 
@@ -729,7 +739,9 @@ private:
 
             if (debug && rpr.hasShowConsoleMsg)
             {
-                juce::String msg = "Processing marker: '" + name.toString() + "' at " + juce::String(sourcePos) + "s for sourceID: " + sourceID + "\n";
+                juce::String msg = "--- Marker: '" + name.toString() + "' ---\n";
+                msg += "  Position: " + juce::String(sourcePos) + "s\n";
+                msg += "  Looking for sourceID: " + sourceID + "\n";
                 rpr.ShowConsoleMsg (msg.toRawUTF8());
             }
 
@@ -753,9 +765,22 @@ private:
                 rpr.GetMediaSourceFileName (source, filenamebuf, sizeof(filenamebuf));
                 juce::String filename (filenamebuf);
 
-                // Match by audio source ID (contained in filename)
+                if (debug && rpr.hasShowConsoleMsg)
+                {
+                    juce::String msg = "  Checking item " + juce::String(i) + ": " + filename + "\n";
+                    rpr.ShowConsoleMsg (msg.toRawUTF8());
+                }
+
+                // Match by audio source ID (must match exactly to avoid false positives)
+                // Check if filename contains the exact sourceID
                 if (filename.contains (sourceID))
                 {
+                    if (debug && rpr.hasShowConsoleMsg)
+                    {
+                        juce::String msg = "    -> MATCH! Attempting to add take marker...\n";
+                        rpr.ShowConsoleMsg (msg.toRawUTF8());
+                    }
+
                     // Add take marker: idx -1 means insert new marker
                     int result = rpr.SetTakeMarker (take, -1, name.toString().toRawUTF8(), &sourcePos, nullptr);
                     if (result >= 0)
@@ -763,13 +788,13 @@ private:
                         matchesFound++;
                         if (debug && rpr.hasShowConsoleMsg)
                         {
-                            juce::String msg = "  Added take marker '" + name.toString() + "' to item " + juce::String(i) + " at " + juce::String(sourcePos) + "s\n";
+                            juce::String msg = "    -> SUCCESS: Added take marker at " + juce::String(sourcePos) + "s (result=" + juce::String(result) + ")\n";
                             rpr.ShowConsoleMsg (msg.toRawUTF8());
                         }
                     }
                     else if (debug && rpr.hasShowConsoleMsg)
                     {
-                        juce::String msg = "  Failed to add take marker to item " + juce::String(i) + "\n";
+                        juce::String msg = "    -> FAILED: SetTakeMarker returned " + juce::String(result) + "\n";
                         rpr.ShowConsoleMsg (msg.toRawUTF8());
                     }
                     // Continue checking other items - don't break!
@@ -778,14 +803,14 @@ private:
 
             if (debug && rpr.hasShowConsoleMsg)
             {
-                juce::String msg = "  Total matches for marker '" + name.toString() + "': " + juce::String(matchesFound) + "\n";
+                juce::String msg = "  Total matches for this marker: " + juce::String(matchesFound) + "\n\n";
                 rpr.ShowConsoleMsg (msg.toRawUTF8());
             }
         }
 
-        if (debug && rpr.hasShowConsoleMsg)
+        if (rpr.hasShowConsoleMsg)
         {
-            juce::String msg = "Finished creating take markers\n";
+            juce::String msg = "=== ReaSpeech: Finished creating take markers ===\n";
             rpr.ShowConsoleMsg (msg.toRawUTF8());
         }
     }
