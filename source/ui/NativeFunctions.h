@@ -654,16 +654,22 @@ private:
 
     void addReaperTakeMarkers (const juce::Array<juce::var>* markers)
     {
-        // Get the last touched track to find relevant media items
-        auto* track = rpr.GetLastTouchedTrack();
-        if (track == nullptr)
+        const bool debug = debugMode.load();
+
+        if (debug && rpr.hasShowConsoleMsg)
         {
-            DBG ("No track selected or touched");
-            return;
+            juce::String msg = "Starting take markers creation for " + juce::String(markers->size()) + " markers\n";
+            rpr.ShowConsoleMsg (msg.toRawUTF8());
         }
 
         // Get all media items in the project
         int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
+
+        if (debug && rpr.hasShowConsoleMsg)
+        {
+            juce::String msg = "Found " + juce::String(numItems) + " total media items in project\n";
+            rpr.ShowConsoleMsg (msg.toRawUTF8());
+        }
 
         for (const auto& markerVar : *markers)
         {
@@ -671,16 +677,18 @@ private:
             double sourcePos = marker->getProperty ("start");
             const auto name = marker->getProperty ("name");
             const auto sourceID = marker->getProperty ("sourceID").toString();
+            int matchesFound = 0;
 
-            // Find the media item with the matching audio source
+            if (debug && rpr.hasShowConsoleMsg)
+            {
+                juce::String msg = "Processing marker: '" + name.toString() + "' at " + juce::String(sourcePos) + "s for sourceID: " + sourceID + "\n";
+                rpr.ShowConsoleMsg (msg.toRawUTF8());
+            }
+
+            // Find all media items with the matching audio source (across all tracks)
             for (int i = 0; i < numItems; ++i)
             {
                 auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
-
-                // Check if item is on the touched track
-                double itemTrackNum = rpr.GetMediaItemInfo_Value (item, "P_TRACK");
-                if (reinterpret_cast<ReaperProxy::MediaTrack*> (static_cast<intptr_t> (itemTrackNum)) != track)
-                    continue;
 
                 // Get the active take from the item
                 auto* take = rpr.GetActiveTake (item);
@@ -704,11 +712,33 @@ private:
                     int result = rpr.SetTakeMarker (take, -1, name.toString().toRawUTF8(), &sourcePos, nullptr);
                     if (result >= 0)
                     {
-                        DBG ("Added take marker: " + name.toString() + " at " + juce::String (sourcePos));
+                        matchesFound++;
+                        if (debug && rpr.hasShowConsoleMsg)
+                        {
+                            juce::String msg = "  Added take marker '" + name.toString() + "' to item " + juce::String(i) + " at " + juce::String(sourcePos) + "s\n";
+                            rpr.ShowConsoleMsg (msg.toRawUTF8());
+                        }
                     }
-                    break; // Move to next marker after finding matching item
+                    else if (debug && rpr.hasShowConsoleMsg)
+                    {
+                        juce::String msg = "  Failed to add take marker to item " + juce::String(i) + "\n";
+                        rpr.ShowConsoleMsg (msg.toRawUTF8());
+                    }
+                    // Continue checking other items - don't break!
                 }
             }
+
+            if (debug && rpr.hasShowConsoleMsg)
+            {
+                juce::String msg = "  Total matches for marker '" + name.toString() + "': " + juce::String(matchesFound) + "\n";
+                rpr.ShowConsoleMsg (msg.toRawUTF8());
+            }
+        }
+
+        if (debug && rpr.hasShowConsoleMsg)
+        {
+            juce::String msg = "Finished creating take markers\n";
+            rpr.ShowConsoleMsg (msg.toRawUTF8());
         }
     }
 
