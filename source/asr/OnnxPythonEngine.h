@@ -287,9 +287,11 @@ private:
             }
 
             // Read any available output to prevent buffer from filling up
-            auto chunk = process.readProcessOutput(4096);  // Read up to 4KB at a time (non-blocking)
-            if (chunk.isNotEmpty())
+            char buffer[4096];
+            int bytesRead = process.readProcessOutput(buffer, sizeof(buffer));
+            if (bytesRead > 0)
             {
+                auto chunk = juce::String::fromUTF8(buffer, bytesRead);
                 output += chunk;
                 lineBuffer += chunk;
 
