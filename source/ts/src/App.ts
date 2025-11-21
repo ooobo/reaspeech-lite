@@ -365,10 +365,13 @@ export default class App {
     const rows = this.transcriptGrid.getRows();
     let markers = [];
 
+    console.log(`[ReaSpeech Debug] Creating ${markerType} markers for ${rows.length} rows`);
+
     for (const row of rows) {
       // For take markers, use audio source positions (start/end) and include sourceID
       // For other marker types, use project timeline positions (playbackStart/playbackEnd)
       if (markerType === 'takemarkers') {
+        console.log(`[ReaSpeech Debug] Row sourceID: "${row.sourceID}", start: ${row.start}, text: "${row.text}"`);
         markers.push({
           start: row.start,
           end: row.end,
@@ -383,6 +386,8 @@ export default class App {
         });
       }
     }
+
+    console.log(`[ReaSpeech Debug] Sending ${markers.length} markers to native:`, JSON.stringify(markers.slice(0, 2)));
 
     if (markers.length > 0) {
       return this.native.createMarkers(markers, markerType).then((result) => {
