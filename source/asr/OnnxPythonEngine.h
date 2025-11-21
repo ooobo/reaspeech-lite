@@ -287,7 +287,7 @@ private:
             }
 
             // Read any available output to prevent buffer from filling up
-            auto chunk = process.readAllProcessOutput();
+            auto chunk = process.readProcessOutput(4096);  // Read up to 4KB at a time (non-blocking)
             if (chunk.isNotEmpty())
             {
                 output += chunk;
@@ -338,7 +338,7 @@ private:
                 }
             }
 
-            juce::Thread::sleep (100);
+            juce::Thread::sleep (200);  // Poll every 200ms to reduce CPU usage
         }
 
         // Read any remaining output
