@@ -674,13 +674,6 @@ private:
     {
         const bool debug = debugMode.load();
 
-        // Test if ShowConsoleMsg works at all
-        if (rpr.hasShowConsoleMsg)
-        {
-            juce::String msg = "=== ReaSpeech: Take markers function called. Debug mode: " + juce::String(debug ? "ON" : "OFF") + " ===\n";
-            rpr.ShowConsoleMsg (msg.toRawUTF8());
-        }
-
         if (debug && rpr.hasShowConsoleMsg)
         {
             juce::String msg = "Starting take markers creation for " + juce::String(markers->size()) + " markers\n";
@@ -824,6 +817,16 @@ private:
 
         if (rpr.hasPreventUIRefresh)
             rpr.PreventUIRefresh(-1);
+    }
+
+    // Helper to output debug messages to ReaScript console when debug mode is on
+    // This replaces DBG() which only works in Debug builds and goes to system debugger
+    void debugLog (const juce::String& message)
+    {
+        if (debugMode.load() && rpr.hasShowConsoleMsg)
+        {
+            rpr.ShowConsoleMsg ((message + "\n").toRawUTF8());
+        }
     }
 
     juce::ARAEditorView& editorView;
