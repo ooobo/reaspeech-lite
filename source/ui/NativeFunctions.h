@@ -672,22 +672,12 @@ private:
 
     void addReaperTakeMarkers (const juce::Array<juce::var>* markers)
     {
-        const bool debug = debugMode.load();
-
-        if (debug && rpr.hasShowConsoleMsg)
-        {
-            juce::String msg = "Starting take markers creation for " + juce::String(markers->size()) + " markers\n";
-            rpr.ShowConsoleMsg (msg.toRawUTF8());
-        }
+        debugLog ("Starting take markers creation for " + juce::String(markers->size()) + " markers");
 
         // Get all media items in the project
         int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
 
-        if (debug && rpr.hasShowConsoleMsg)
-        {
-            juce::String msg = "Found " + juce::String(numItems) + " total media items in project\n";
-            rpr.ShowConsoleMsg (msg.toRawUTF8());
-        }
+        debugLog ("Found " + juce::String(numItems) + " total media items in project");
 
         for (const auto& markerVar : *markers)
         {
@@ -697,20 +687,12 @@ private:
             const auto sourceID = marker->getProperty ("sourceID").toString();
             int matchesFound = 0;
 
-            if (debug && rpr.hasShowConsoleMsg)
-            {
-                juce::String msg = "Processing marker: '" + name.toString() + "' at " + juce::String(sourcePos) + "s for sourceID: " + sourceID + "\n";
-                rpr.ShowConsoleMsg (msg.toRawUTF8());
-            }
+            debugLog ("Processing marker: '" + name.toString() + "' at " + juce::String(sourcePos) + "s for sourceID: " + sourceID);
 
             // Skip if sourceID is empty to avoid matching all files
             if (sourceID.isEmpty())
             {
-                if (debug && rpr.hasShowConsoleMsg)
-                {
-                    juce::String msg = "  WARNING: sourceID is empty, skipping marker\n";
-                    rpr.ShowConsoleMsg (msg.toRawUTF8());
-                }
+                debugLog ("  WARNING: sourceID is empty, skipping marker");
                 continue;
             }
 
@@ -742,33 +724,20 @@ private:
                     if (result >= 0)
                     {
                         matchesFound++;
-                        if (debug && rpr.hasShowConsoleMsg)
-                        {
-                            juce::String msg = "  Added take marker '" + name.toString() + "' to item " + juce::String(i) + " at " + juce::String(sourcePos) + "s\n";
-                            rpr.ShowConsoleMsg (msg.toRawUTF8());
-                        }
+                        debugLog ("  Added take marker '" + name.toString() + "' to item " + juce::String(i) + " at " + juce::String(sourcePos) + "s");
                     }
-                    else if (debug && rpr.hasShowConsoleMsg)
+                    else
                     {
-                        juce::String msg = "  Failed to add take marker to item " + juce::String(i) + "\n";
-                        rpr.ShowConsoleMsg (msg.toRawUTF8());
+                        debugLog ("  Failed to add take marker to item " + juce::String(i));
                     }
                     // Continue checking other items - don't break!
                 }
             }
 
-            if (debug && rpr.hasShowConsoleMsg)
-            {
-                juce::String msg = "  Total matches for marker '" + name.toString() + "': " + juce::String(matchesFound) + "\n";
-                rpr.ShowConsoleMsg (msg.toRawUTF8());
-            }
+            debugLog ("  Total matches for marker '" + name.toString() + "': " + juce::String(matchesFound));
         }
 
-        if (debug && rpr.hasShowConsoleMsg)
-        {
-            juce::String msg = "Finished creating take markers\n";
-            rpr.ShowConsoleMsg (msg.toRawUTF8());
-        }
+        debugLog ("Finished creating take markers");
     }
 
     ReaperProxy::MediaItem* createEmptyReaperItem (const double start, const double end)
