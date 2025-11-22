@@ -268,7 +268,9 @@ export default class App {
 
   handleDebugChange() {
     this.state.debug = (document.getElementById('debug-checkbox') as HTMLInputElement).checked;
-    return this.native.setDebugMode(this.state.debug).then(() => {
+    console.log(`[ReaSpeech Debug] Setting debug mode to: ${this.state.debug}`);
+    return this.native.setDebugMode(this.state.debug).then((result) => {
+      console.log(`[ReaSpeech Debug] setDebugMode result:`, result);
       return this.saveState();
     });
   }
@@ -365,8 +367,20 @@ export default class App {
     const rows = this.transcriptGrid.getRows();
     let markers = [];
 
+    console.log(`[ReaSpeech Debug] Creating ${markerType} markers for ${rows.length} rows`);
+
     for (const row of rows) {
-      if (row.playbackStart !== null && row.playbackEnd !== null) {
+      // For take markers, use audio source positions (start/end) and include sourceID
+      // For other marker types, use project timeline positions (playbackStart/playbackEnd)
+      if (markerType === 'take-markers') {
+        console.log(`[ReaSpeech Debug] Row sourceID: "${row.sourceID}", start: ${row.start}, text: "${row.text}"`);
+        markers.push({
+          start: row.start,
+          end: row.end,
+          name: row.text,
+          sourceID: row.sourceID
+        });
+      } else if (row.playbackStart !== null && row.playbackEnd !== null) {
         markers.push({
           start: row.playbackStart,
           end: row.playbackEnd,
@@ -374,6 +388,8 @@ export default class App {
         });
       }
     }
+
+    console.log(`[ReaSpeech Debug] Sending ${markers.length} markers to native:`, JSON.stringify(markers.slice(0, 2)));
 
     if (markers.length > 0) {
       return this.native.createMarkers(markers, markerType).then((result) => {

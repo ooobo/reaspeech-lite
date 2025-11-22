@@ -558,13 +558,31 @@ public:
 
     void setDebugMode (const juce::var& args, std::function<void (const juce::var&)> complete)
     {
-        if (!args.isBool())
+        // Accept bool directly or as first element of array
+        bool debugValue = false;
+
+        if (args.isBool())
         {
-            complete (makeError ("Invalid arguments"));
-            return;
+            debugValue = static_cast<bool>(args);
+        }
+        else if (args.isArray() && args.size() > 0)
+        {
+            debugValue = static_cast<bool>(args[0]);
+        }
+        else
+        {
+            // Try to convert whatever we got to bool
+            debugValue = static_cast<bool>(args);
         }
 
-        debugMode.store (args);
+        debugMode.store (debugValue);
+
+        if (rpr.hasShowConsoleMsg)
+        {
+            juce::String msg = "ReaSpeech: Debug mode set to " + juce::String(debugValue ? "ON" : "OFF") + "\n";
+            rpr.ShowConsoleMsg (msg.toRawUTF8());
+        }
+
         complete (juce::var());
     }
 
@@ -656,6 +674,13 @@ private:
     {
         const bool debug = debugMode.load();
 
+        // Test if ShowConsoleMsg works at all
+        if (rpr.hasShowConsoleMsg)
+        {
+            juce::String msg = "=== ReaSpeech: Take markers function called. Debug mode: " + juce::String(debug ? "ON" : "OFF") + " ===\n";
+            rpr.ShowConsoleMsg (msg.toRawUTF8());
+        }
+
         if (debug && rpr.hasShowConsoleMsg)
         {
             juce::String msg = "Starting take markers creation for " + juce::String(markers->size()) + " markers\n";
@@ -683,6 +708,17 @@ private:
             {
                 juce::String msg = "Processing marker: '" + name.toString() + "' at " + juce::String(sourcePos) + "s for sourceID: " + sourceID + "\n";
                 rpr.ShowConsoleMsg (msg.toRawUTF8());
+            }
+
+            // Skip if sourceID is empty to avoid matching all files
+            if (sourceID.isEmpty())
+            {
+                if (debug && rpr.hasShowConsoleMsg)
+                {
+                    juce::String msg = "  WARNING: sourceID is empty, skipping marker\n";
+                    rpr.ShowConsoleMsg (msg.toRawUTF8());
+                }
+                continue;
             }
 
             // Find all media items with the matching audio source (across all tracks)
