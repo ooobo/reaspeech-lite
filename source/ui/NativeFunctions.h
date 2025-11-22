@@ -606,13 +606,31 @@ public:
 
     void setDebugMode (const juce::var& args, std::function<void (const juce::var&)> complete)
     {
-        if (!args.isBool())
+        // Accept bool directly or as first element of array
+        bool debugValue = false;
+
+        if (args.isBool())
         {
-            complete (makeError ("Invalid arguments"));
-            return;
+            debugValue = static_cast<bool>(args);
+        }
+        else if (args.isArray() && args.size() > 0)
+        {
+            debugValue = static_cast<bool>(args[0]);
+        }
+        else
+        {
+            // Try to convert whatever we got to bool
+            debugValue = static_cast<bool>(args);
         }
 
-        debugMode.store (args);
+        debugMode.store (debugValue);
+
+        if (rpr.hasShowConsoleMsg)
+        {
+            juce::String msg = "ReaSpeech: Debug mode set to " + juce::String(debugValue ? "ON" : "OFF") + "\n";
+            rpr.ShowConsoleMsg (msg.toRawUTF8());
+        }
+
         complete (juce::var());
     }
 
@@ -702,16 +720,12 @@ private:
 
     void addReaperTakeMarkers (const juce::Array<juce::var>* markers)
     {
-        // Get the last touched track to find relevant media items
-        auto* track = rpr.GetLastTouchedTrack();
-        if (track == nullptr)
-        {
-            DBG ("No track selected or touched");
-            return;
-        }
+        debugLog ("Starting take markers creation for " + juce::String(markers->size()) + " markers");
 
         // Get all media items in the project
         int numItems = rpr.CountMediaItems (ReaperProxy::activeProject);
+
+        debugLog ("Found " + juce::String(numItems) + " total media items in project");
 
         for (const auto& markerVar : *markers)
         {
@@ -719,16 +733,21 @@ private:
             double sourcePos = marker->getProperty ("start");
             const auto name = marker->getProperty ("name");
             const auto sourceID = marker->getProperty ("sourceID").toString();
+            int matchesFound = 0;
 
-            // Find the media item with the matching audio source
+            debugLog ("Processing marker: '" + name.toString() + "' at " + juce::String(sourcePos) + "s for sourceID: " + sourceID);
+
+            // Skip if sourceID is empty to avoid matching all files
+            if (sourceID.isEmpty())
+            {
+                debugLog ("  WARNING: sourceID is empty, skipping marker");
+                continue;
+            }
+
+            // Find all media items with the matching audio source (across all tracks)
             for (int i = 0; i < numItems; ++i)
             {
                 auto* item = rpr.GetMediaItem (ReaperProxy::activeProject, i);
-
-                // Check if item is on the touched track
-                double itemTrackNum = rpr.GetMediaItemInfo_Value (item, "P_TRACK");
-                if (reinterpret_cast<ReaperProxy::MediaTrack*> (static_cast<intptr_t> (itemTrackNum)) != track)
-                    continue;
 
                 // Get the active take from the item
                 auto* take = rpr.GetActiveTake (item);
@@ -752,12 +771,21 @@ private:
                     int result = rpr.SetTakeMarker (take, -1, name.toString().toRawUTF8(), &sourcePos, nullptr);
                     if (result >= 0)
                     {
-                        DBG ("Added take marker: " + name.toString() + " at " + juce::String (sourcePos));
+                        matchesFound++;
+                        debugLog ("  Added take marker '" + name.toString() + "' to item " + juce::String(i) + " at " + juce::String(sourcePos) + "s");
                     }
-                    break; // Move to next marker after finding matching item
+                    else
+                    {
+                        debugLog ("  Failed to add take marker to item " + juce::String(i));
+                    }
+                    // Continue checking other items - don't break!
                 }
             }
+
+            debugLog ("  Total matches for marker '" + name.toString() + "': " + juce::String(matchesFound));
         }
+
+        debugLog ("Finished creating take markers");
     }
 
     ReaperProxy::MediaItem* createEmptyReaperItem (const double start, const double end)
@@ -806,6 +834,16 @@ private:
 
         if (rpr.hasPreventUIRefresh)
             rpr.PreventUIRefresh(-1);
+    }
+
+    // Helper to output debug messages to ReaScript console when debug mode is on
+    // This replaces DBG() which only works in Debug builds and goes to system debugger
+    void debugLog (const juce::String& message)
+    {
+        if (debugMode.load() && rpr.hasShowConsoleMsg)
+        {
+            rpr.ShowConsoleMsg ((message + "\n").toRawUTF8());
+        }
     }
 
     juce::ARAEditorView& editorView;

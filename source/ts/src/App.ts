@@ -366,7 +366,16 @@ export default class App {
     let markers = [];
 
     for (const row of rows) {
-      if (row.playbackStart !== null && row.playbackEnd !== null) {
+      // For take markers, use audio source positions (start/end) and include sourceID
+      // For other marker types, use project timeline positions (playbackStart/playbackEnd)
+      if (markerType === 'take-markers') {
+        markers.push({
+          start: row.start,
+          end: row.end,
+          name: row.text,
+          sourceID: row.sourceID
+        });
+      } else if (row.playbackStart !== null && row.playbackEnd !== null) {
         markers.push({
           start: row.playbackStart,
           end: row.playbackEnd,
