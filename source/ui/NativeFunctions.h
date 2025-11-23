@@ -438,7 +438,7 @@ public:
                 asrStatus = status;
             };
 
-            auto completionCallback = [this, complete, useOnnx] (const ASRThreadPoolJobResult& result) {
+            auto completionCallback = [this, complete] (const ASRThreadPoolJobResult& result) {
                 // When the last job completes, calculate total wall-clock time
                 int remainingJobs = activeJobCount.fetch_sub(1) - 1;
                 if (remainingJobs == 0)
@@ -504,6 +504,18 @@ public:
                 rsAudioSource->setFilePath (audioFilePath);
             }
 
+            // Logger callback that outputs to REAPER console
+            auto loggerCallback = [this] (const juce::String& message) {
+                if (rpr.hasShowConsoleMsg)
+                {
+                    try
+                    {
+                        rpr.ShowConsoleMsg ((message + "\n").toRawUTF8());
+                    }
+                    catch (...) {}
+                }
+            };
+
             if (useOnnx)
             {
                 job = new ASRThreadPoolJob<OnnxPythonEngine> (
@@ -511,7 +523,8 @@ public:
                     audioSource,
                     std::move(options),
                     statusCallback,
-                    completionCallback
+                    completionCallback,
+                    loggerCallback
                 );
             }
             else
@@ -521,7 +534,8 @@ public:
                     audioSource,
                     std::move(options),
                     statusCallback,
-                    completionCallback
+                    completionCallback,
+                    loggerCallback
                 );
             }
 
