@@ -17,27 +17,28 @@ Name: "vst3"; Description: "VST3 plugin"; Types: full custom
 [Setup]
 ArchitecturesInstallIn64BitMode=x64compatible
 ArchitecturesAllowed=x64compatible
+PrivilegesRequired=lowest
 AppName={#ProductName}
 AppVerName={#ProductName} {#MatrixName} {#Version}
 OutputBaseFilename={#ProductName}-{#Version}-{#MatrixName}
 AppCopyright=Copyright (C) {#Year} {#Publisher}
 AppPublisher={#Publisher}
 AppVersion={#Version}
-DefaultDirName="{commoncf64}\VST3\{#ProductName}.vst3"
-DisableDirPage=yes
+DefaultDirName="{userappdata}\REAPER\Plugins\{#ProductName}.vst3"
+DisableDirPage=no
 
 ; MAKE SURE YOU READ/MODIFY THE EULA BEFORE USING IT
 ; LicenseFile="resources\EULA"
-UninstallFilesDir="{commonappdata}\{#ProductName}\uninstall"
+UninstallFilesDir="{localappdata}\{#ProductName}\uninstall"
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{commoncf64}\VST3\{#ProductName}Data"
+Type: filesandordirs; Name: "{userappdata}\REAPER\Plugins\{#ProductName}Data"
 
 ; MSVC adds a .ilk when building the plugin. Let's not include that.
 ; The parakeet-transcribe-windows.exe is already in the VST3 bundle at Contents/x86_64-win
 ; so it will be included by the recursesubdirs flag below
 [Files]
-Source: "..\Builds\{#ProjectName}_artefacts\Release\VST3\{#ProductName}.vst3\*"; DestDir: "{commoncf64}\VST3\{#ProductName}.vst3\"; Excludes: *.ilk; Flags: ignoreversion recursesubdirs; Components: vst3
+Source: "..\Builds\{#ProjectName}_artefacts\Release\VST3\{#ProductName}.vst3\*"; DestDir: "{app}"; Excludes: *.ilk; Flags: ignoreversion recursesubdirs; Components: vst3
 
 [Icons]
 Name: "{autoprograms}\Uninstall {#ProductName}"; Filename: "{uninstallexe}"

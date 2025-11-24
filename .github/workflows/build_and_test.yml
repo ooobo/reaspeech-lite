@@ -388,11 +388,8 @@ jobs:
         with:
           prerelease: true
           # download-artifact puts these files in their own dirs...
-          # Using globs sidesteps having to pass the version around
+          # Only upload the main plugin installers, not parakeet-transcribe executables
           files: |
-            */*.exe
-            */*.zip
-            */*.pkg
-            parakeet-transcribe-linux/parakeet-transcribe-linux
-            parakeet-transcribe-macos/parakeet-transcribe-macos
-            parakeet-transcribe-windows/parakeet-transcribe-windows.exe
+            ReaSpeechLite-*/*.exe
+            ReaSpeechLite-*/*.zip
+            ReaSpeechLite-*/*.pkg

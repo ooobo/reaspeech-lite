@@ -14,11 +14,11 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "" FORCE)
 
 include(JUCEDefaults)
 
-set(BUNDLE_ID "com.TechAudio.ReaSpeechLite")
+set(BUNDLE_ID "com.TechAudio.ReaSpeechLite-p1")
 set(COMPANY_NAME "TechAudio")
 set(COMPANY_WEBSITE "https://techaud.io")
 set(FORMATS VST3)
-set(PRODUCT_NAME "ReaSpeechLite")
+set(PRODUCT_NAME "ReaSpeechLite-p1")
 set(PROJECT_NAME "ReaSpeechLite")
 
 project(${PROJECT_NAME} VERSION ${CURRENT_VERSION})
