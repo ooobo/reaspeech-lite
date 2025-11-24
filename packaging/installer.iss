@@ -34,6 +34,8 @@ UninstallFilesDir="{commonappdata}\{#ProductName}\uninstall"
 Type: filesandordirs; Name: "{commoncf64}\VST3\{#ProductName}Data"
 
 ; MSVC adds a .ilk when building the plugin. Let's not include that.
+; The parakeet-transcribe-windows.exe is already in the VST3 bundle at Contents/x86_64-win
+; so it will be included by the recursesubdirs flag below
 [Files]
 Source: "..\Builds\{#ProjectName}_artefacts\Release\VST3\{#ProductName}.vst3\*"; DestDir: "{commoncf64}\VST3\{#ProductName}.vst3\"; Excludes: *.ilk; Flags: ignoreversion recursesubdirs; Components: vst3
 

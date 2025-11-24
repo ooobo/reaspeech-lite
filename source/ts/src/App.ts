@@ -31,7 +31,7 @@ export default class App {
     this.native = new Native();
 
     this.state = {
-      modelName: 'small',
+      modelName: 'onnx-nemo-parakeet-tdt-0.6b-v2',
       language: '',
       translate: false,
       debug: false,

@@ -154,6 +154,54 @@ jobs:
         working-directory: source/ts
         run: npm run build
 
+      - name: Setup Python
+        if: env.SHOULD_SKIP != 'true' && !matrix.cuda
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        if: env.SHOULD_SKIP != 'true' && !matrix.cuda
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller onnx-asr onnxruntime huggingface-hub soundfile numpy
+
+      - name: Build Parakeet executable (Linux)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'
+        working-directory: python
+        run: bash build_executable.sh
+
+      - name: Build Parakeet executable (macOS)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'macOS'
+        working-directory: python
+        run: bash build_executable.sh
+
+      - name: Build Parakeet executable (Windows)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
+        working-directory: python
+        run: ./build_executable.bat
+
+      - name: Upload Parakeet executable artifact (Linux)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: parakeet-transcribe-linux
+          path: python/dist/parakeet-transcribe-linux
+
+      - name: Upload Parakeet executable artifact (macOS)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: parakeet-transcribe-macos
+          path: python/dist/parakeet-transcribe-macos
+
+      - name: Upload Parakeet executable artifact (Windows)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: parakeet-transcribe-windows
+          path: python/dist/parakeet-transcribe-windows.exe
+
       - name: Cache the build
         if: env.SHOULD_SKIP != 'true'
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -175,6 +223,16 @@ jobs:
       - name: Build
         if: env.SHOULD_SKIP != 'true'
         run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }} --parallel 4
+
+      - name: Copy Parakeet executable to VST3 bundle (macOS)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'macOS'
+        run: |
+          VST3_BUNDLE="${{ env.BUILD_DIR }}/ReaSpeechLite_artefacts/${{ env.BUILD_TYPE }}/VST3/ReaSpeechLite.vst3"
+          mkdir -p "${VST3_BUNDLE}/Contents/Resources"
+          cp python/dist/parakeet-transcribe-macos "${VST3_BUNDLE}/Contents/Resources/"
+          chmod +x "${VST3_BUNDLE}/Contents/Resources/parakeet-transcribe-macos"
+          echo "Copied parakeet-transcribe-macos to ${VST3_BUNDLE}/Contents/Resources/"
+          ls -la "${VST3_BUNDLE}/Contents/Resources/"
 
       - name: Test & Benchmarks
         if: env.SHOULD_SKIP != 'true'
@@ -244,10 +302,24 @@ jobs:
           # xcrun notarytool submit "${{ env.ARTIFACT_NAME }}.pkg" --apple-id ${{ secrets.NOTARIZATION_USERNAME }} --password ${{ secrets.NOTARIZATION_PASSWORD }} --team-id ${{ secrets.TEAM_ID }} --wait
           # xcrun stapler staple "${{ env.ARTIFACT_NAME }}.pkg"
 
+      - name: Copy Parakeet executable to artifacts (Linux)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'
+        run: |
+          cp python/dist/parakeet-transcribe-linux "${{ env.ARTIFACTS_PATH }}/"
+          chmod +x "${{ env.ARTIFACTS_PATH }}/parakeet-transcribe-linux"
+          echo "Copied parakeet-transcribe-linux to ${{ env.ARTIFACTS_PATH }}/"
+
       - name: Zip
         if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'
         working-directory: ${{ env.ARTIFACTS_PATH }}
         run: 7z a -tzip "${{ env.ARTIFACT_NAME }}.zip" "-xr!lib${{ env.PRODUCT_NAME }}_SharedCode.a" .
+
+      - name: Copy Parakeet executable to VST3 bundle (Windows)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
+        run: |
+          mkdir -p "${{ env.VST3_PATH }}/Contents/x86_64-win"
+          cp python/dist/parakeet-transcribe-windows.exe "${{ env.VST3_PATH }}/Contents/x86_64-win/"
+          echo "Copied parakeet-transcribe-windows.exe to ${{ env.VST3_PATH }}/Contents/x86_64-win/"
 
       - name: Generate Installer
         if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
@@ -321,3 +393,6 @@ jobs:
             */*.exe
             */*.zip
             */*.pkg
+            parakeet-transcribe-linux/parakeet-transcribe-linux
+            parakeet-transcribe-macos/parakeet-transcribe-macos
+            parakeet-transcribe-windows/parakeet-transcribe-windows.exe
