@@ -181,26 +181,26 @@ jobs:
         working-directory: python
         run: ./build_executable.bat
 
-      - name: Upload Parakeet executable artifact (Linux)
-        if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: parakeet-transcribe-linux
-          path: python/dist/parakeet-transcribe-linux
+      # - name: Upload Parakeet executable artifact (Linux)
+      #   if: env.SHOULD_SKIP != 'true' && runner.os == 'Linux'
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: parakeet-transcribe-linux
+      #     path: python/dist/parakeet-transcribe-linux
 
-      - name: Upload Parakeet executable artifact (macOS)
-        if: env.SHOULD_SKIP != 'true' && runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
-        with:
-          name: parakeet-transcribe-macos
-          path: python/dist/parakeet-transcribe-macos
+      # - name: Upload Parakeet executable artifact (macOS)
+      #   if: env.SHOULD_SKIP != 'true' && runner.os == 'macOS'
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: parakeet-transcribe-macos
+      #     path: python/dist/parakeet-transcribe-macos
 
-      - name: Upload Parakeet executable artifact (Windows)
-        if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: parakeet-transcribe-windows
-          path: python/dist/parakeet-transcribe-windows.exe
+      # - name: Upload Parakeet executable artifact (Windows)
+      #   if: env.SHOULD_SKIP != 'true' && runner.os == 'Windows'
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: parakeet-transcribe-windows
+      #     path: python/dist/parakeet-transcribe-windows.exe
 
       - name: Cache the build
         if: env.SHOULD_SKIP != 'true'
@@ -224,16 +224,6 @@ jobs:
         if: env.SHOULD_SKIP != 'true'
         run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }} --parallel 4
 
-      - name: Copy Parakeet executable to VST3 bundle (macOS)
-        if: env.SHOULD_SKIP != 'true' && runner.os == 'macOS'
-        run: |
-          VST3_BUNDLE="${{ env.BUILD_DIR }}/ReaSpeechLite_artefacts/${{ env.BUILD_TYPE }}/VST3/ReaSpeechLite.vst3"
-          mkdir -p "${VST3_BUNDLE}/Contents/Resources"
-          cp python/dist/parakeet-transcribe-macos "${VST3_BUNDLE}/Contents/Resources/"
-          chmod +x "${VST3_BUNDLE}/Contents/Resources/parakeet-transcribe-macos"
-          echo "Copied parakeet-transcribe-macos to ${VST3_BUNDLE}/Contents/Resources/"
-          ls -la "${VST3_BUNDLE}/Contents/Resources/"
-
       - name: Test & Benchmarks
         if: env.SHOULD_SKIP != 'true'
         working-directory: ${{ env.BUILD_DIR }}
@@ -253,6 +243,15 @@ jobs:
           echo "VST3_PATH=$ARTIFACTS_PATH/VST3/${{ env.PRODUCT_NAME }}.vst3" >> $GITHUB_ENV
           echo "MATRIX_NAME=${{ matrix.name }}" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=${{ env.PRODUCT_NAME }}-${{ env.VERSION }}-${{ matrix.name }}" >> $GITHUB_ENV
+
+      - name: Copy Parakeet executable to VST3 bundle (macOS)
+        if: env.SHOULD_SKIP != 'true' && runner.os == 'macOS'
+        run: |
+          mkdir -p "${{ env.VST3_PATH }}/Contents/Resources"
+          cp python/dist/parakeet-transcribe-macos "${{ env.VST3_PATH }}/Contents/Resources/"
+          chmod +x "${{ env.VST3_PATH }}/Contents/Resources/parakeet-transcribe-macos"
+          echo "Copied parakeet-transcribe-macos to ${{ env.VST3_PATH }}/Contents/Resources/"
+          ls -la "${{ env.VST3_PATH }}/Contents/Resources/"
 
       - name: Pluginval
         if: env.SHOULD_SKIP != 'true' && !matrix.cuda
