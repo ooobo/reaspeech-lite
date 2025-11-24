@@ -134,13 +134,13 @@ export default class TranscriptGrid {
         field: 'playbackStart',
         headerName: 'Start',
         cellRenderer: this.renderStartTime.bind(this),
-        width: 100
+        width: 95
       },
       {
         field: 'playbackEnd',
         headerName: 'End',
         cellRenderer: this.renderEndTime.bind(this),
-        width: 100
+        width: 95
       },
       {
         field: 'text',
@@ -153,19 +153,14 @@ export default class TranscriptGrid {
         field: 'score',
         headerName: 'Score',
         cellRenderer: this.renderScore.bind(this),
-        width: 100
+        width: 50
       },
       {
         field: 'source',
-        headerName: 'Source',
+        headerName: '+ Source',
         filter: true,
-        width: 200
-      },
-      {
-        field: 'start',
-        headerName: 'Raw Timecode',
-        cellRenderer: this.renderRawTimecode.bind(this),
-        width: 140
+        cellRenderer: this.renderSource.bind(this),
+        width: 150
       },
     ];
   }
@@ -198,7 +193,7 @@ export default class TranscriptGrid {
       if (target.tagName === 'A' && params.data.playbackStart !== null) {
         this.onPlayAt(params.data.playbackStart);
       }
-    } else if (params.column.getColId() === 'start') {
+    } else if (params.column.getColId() === 'source') {
       const target = params.event.target as HTMLElement;
       if (target.tagName === 'A') {
         this.insertRawTimecode(params.data.start, params.data.end, params.data.filePath);
@@ -235,14 +230,17 @@ export default class TranscriptGrid {
     return `<span class="small text-muted" data-segment-time="${time}">${timestampToString(time)}</span>`;
   }
 
-  renderRawTimecode(params: ICellRendererParams) {
+  renderSource(params: ICellRendererParams) {
     const linkClasses = 'link-offset-2 link-underline link-underline-opacity-0 link-underline-opacity-50-hover small';
-    const start = params.value;
+    const source = params.value;
+    const start = params.data.start;
     const end = params.data.end;
     if (start === null || start === undefined) {
-      return '';
+      // No raw timecode available, just show source name
+      return `<span class="small">+ ${htmlEscape(source)}</span>`;
     }
-    return `<a href="javascript:" class="${linkClasses}" title="Click to insert timecode at cursor">${timestampToString(start)} - ${timestampToString(end)}</a>`;
+    const tooltip = `Insert ${timestampToString(start)} - ${timestampToString(end)}`;
+    return `<a href="javascript:" class="${linkClasses}" title="${tooltip}">${htmlEscape(source)}</a>`;
   }
 
   renderText(params: ICellRendererParams) {
