@@ -40,6 +40,7 @@ Executables are created in `dist/`:
 
 # Output is printed to stdout
 # Errors are printed to stderr
+Note, both are picked up by plugin because of juce quirk.
 ```
 
 ## Integration with VST3
@@ -53,14 +54,10 @@ The C++ plugin automatically:
 
 ## Distribution
 
-Copy the platform-specific executable to:
+If building seperately, copy the platform-specific executable to:
 - **Windows**: Place `parakeet-transcribe-windows.exe` next to the VST3 plugin
 - **macOS**: Place inside `ReaSpeechLite.vst3/Contents/Resources/`
 - **Linux**: Place next to the VST3 plugin
 
 The VST3 plugin will find and use it automatically.
 
-## Size
-
-Each executable is approximately 200-300 MB due to bundled Python runtime and dependencies.
-This is a one-time download with the plugin installation.
