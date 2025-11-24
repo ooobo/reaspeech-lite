@@ -134,13 +134,13 @@ export default class TranscriptGrid {
         field: 'playbackStart',
         headerName: 'Start',
         cellRenderer: this.renderStartTime.bind(this),
-        width: 90
+        width: 95
       },
       {
         field: 'playbackEnd',
         headerName: 'End',
         cellRenderer: this.renderEndTime.bind(this),
-        width: 90
+        width: 95
       },
       {
         field: 'text',
@@ -157,7 +157,7 @@ export default class TranscriptGrid {
       },
       {
         field: 'source',
-        headerName: 'Source',
+        headerName: '+ Source',
         filter: true,
         cellRenderer: this.renderSource.bind(this),
         width: 150
@@ -237,9 +237,9 @@ export default class TranscriptGrid {
     const end = params.data.end;
     if (start === null || start === undefined) {
       // No raw timecode available, just show source name
-      return `<span class="small">${htmlEscape(source)}</span>`;
+      return `<span class="small">+ ${htmlEscape(source)}</span>`;
     }
-    const tooltip = `${timestampToString(start)} - ${timestampToString(end)} >> Click to insert`;
+    const tooltip = `Insert ${timestampToString(start)} - ${timestampToString(end)}`;
     return `<a href="javascript:" class="${linkClasses}" title="${tooltip}">${htmlEscape(source)}</a>`;
   }
 
